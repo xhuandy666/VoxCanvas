@@ -15,7 +15,7 @@
 
 ## 当前阶段
 
-当前处于 PR-10 LLM 语义规划接入阶段，已建立：
+当前处于 PR-11 绘图操作 schema 扩展阶段，已建立：
 
 - 项目开发文档：`docs/project-development-document.md`
 - 开发纪律与提交规范：`docs/development-discipline.md`
@@ -44,7 +44,7 @@ MVP 优先采用浏览器语音识别能力完成端到端闭环：
 - `SpeechProvider`：统一语音识别接口。
 - `LocalSpeechProvider`：仅预留接口，后续有时间可接入 whisper.cpp、faster-whisper 或 Vosk。
 
-绘图能力采用 Web 前端实现，当前阶段使用 SVG 渲染圆、矩形、线条、箭头和文本，并通过统一操作队列把基础指令解析结果应用到画布状态。画布状态接入历史管理和对象引用后，基础创建、对象移动、对象删除、对象变色、基础尺寸调整、清空、撤销和重做已经形成可验证闭环。
+绘图能力采用 Web 前端实现，当前阶段使用 SVG 渲染圆、矩形、线条、箭头、文本、三角形、菱形和椭圆，并通过统一操作队列把基础指令解析结果应用到画布状态。画布状态接入历史管理和对象引用后，基础创建、对象移动、对象删除、对象变色、基础尺寸调整、清空、撤销和重做已经形成可验证闭环。
 
 后续 AI 能力采用“LLM 负责理解语义，规则和 schema 负责约束边界”的路线。简单、确定性的指令继续走本地规则解析；语音误识别、同义表达、模糊指令和复杂组合指令进入 LLM Semantic Planner；结构化绘图最终仍然只能执行合法 `DrawingOperation`。PR-10 主选 OpenAI Responses API 作为语义规划入口，默认模型通过 `VOXCANVAS_LLM_MODEL` 配置，API key 只允许放在本地环境变量或后端配置中，不进入前端代码。对于复杂视觉对象，系统可路由到 AI 生图路径，后续优先用 Responses API 的 `image_generation` 工具承接文生图和基于旧图的语音改图，生成受管理的图片图层并保留历史以支持撤销。
 
@@ -63,7 +63,7 @@ pnpm build
 
 如果需要启用 PR-10 的真实 LLM 语义容错，在本地复制 `.env.example` 为 `.env` 并填入自己的 `OPENAI_API_KEY`。仓库只提交 `.env.example`，不要提交 `.env`。
 
-当前 PR-10 已提供画布状态模型、SVG 渲染能力、`SpeechProvider` 抽象、浏览器语音识别入口、基础本地指令解析能力、操作队列执行能力、历史管理能力、对象引用能力、语义规划基础层和 LLM Semantic Planner 接入。应用仍优先用规则解析简单指令；当规则无法安全执行时，会请求本地 `/api/semantic-plan` 代理，由 OpenAI Responses API 返回结构化语义计划，再通过 `OperationValidator` 阻止非法绘图操作进入队列。复杂绘图 schema 扩展、结构化复合对象、AI 生图和语音改图能力将在后续 PR 接入。
+当前 PR-11 已提供画布状态模型、SVG 渲染能力、`SpeechProvider` 抽象、浏览器语音识别入口、基础本地指令解析能力、操作队列执行能力、历史管理能力、对象引用能力、语义规划基础层、LLM Semantic Planner 接入和扩展绘图原语。应用仍优先用规则解析简单指令；当规则无法安全执行时，会请求本地 `/api/semantic-plan` 代理，由 OpenAI Responses API 返回结构化语义计划，再通过 `OperationValidator` 阻止非法绘图操作进入队列。结构化复合对象、AI 生图和语音改图能力将在后续 PR 接入。
 
 ## 提交材料目标
 
@@ -75,4 +75,4 @@ pnpm build
 
 ## 依赖声明
 
-实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。PR-01 引入 Vite、React、TypeScript、Vitest 与 Testing Library，用于前端应用脚手架、类型检查和基础组件测试。同时引入 `@vitejs/plugin-react`、`jsdom`、`@testing-library/jest-dom` 与 React 类型包，用于 React 编译支持、测试 DOM 环境、测试断言扩展和 TypeScript 类型检查。PR-02、PR-03、PR-04、PR-05、PR-06、PR-07、PR-08 与 PR-09 未新增第三方依赖。PR-10 未新增 SDK 依赖，通过 Vite dev server 本地代理调用 OpenAI Responses API；默认语义模型配置为 `VOXCANVAS_LLM_MODEL=gpt-5.4-mini`，真实调用需要用户自行提供 `OPENAI_API_KEY`。当前未引入语音识别模型、图片生成模型 SDK 或模型权重。
+实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。PR-01 引入 Vite、React、TypeScript、Vitest 与 Testing Library，用于前端应用脚手架、类型检查和基础组件测试。同时引入 `@vitejs/plugin-react`、`jsdom`、`@testing-library/jest-dom` 与 React 类型包，用于 React 编译支持、测试 DOM 环境、测试断言扩展和 TypeScript 类型检查。PR-02、PR-03、PR-04、PR-05、PR-06、PR-07、PR-08 与 PR-09 未新增第三方依赖。PR-10 未新增 SDK 依赖，通过 Vite dev server 本地代理调用 OpenAI Responses API；默认语义模型配置为 `VOXCANVAS_LLM_MODEL=gpt-5.4-mini`，真实调用需要用户自行提供 `OPENAI_API_KEY`。PR-11 未新增第三方依赖。当前未引入语音识别模型、图片生成模型 SDK 或模型权重。

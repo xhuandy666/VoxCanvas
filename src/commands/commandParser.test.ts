@@ -146,6 +146,62 @@ describe("parseCommand", () => {
     });
   });
 
+  it("parses expanded primitive creation commands for composite sketches", () => {
+    expect(
+      parseCommand("画一个红色三角形", {
+        createShapeId: () => "shape-triangle-1",
+      }).operations[0],
+    ).toMatchObject({
+      type: "create_shape",
+      shape: {
+        id: "shape-triangle-1",
+        kind: "triangle",
+        width: 180,
+        height: 140,
+        style: {
+          fill: "#dc2626",
+          stroke: "#991b1b",
+        },
+      },
+    });
+
+    expect(
+      parseCommand("画一个黄色菱形", {
+        createShapeId: () => "shape-diamond-1",
+      }).operations[0],
+    ).toMatchObject({
+      type: "create_shape",
+      shape: {
+        id: "shape-diamond-1",
+        kind: "diamond",
+        width: 160,
+        height: 120,
+        style: {
+          fill: "#facc15",
+          stroke: "#ca8a04",
+        },
+      },
+    });
+
+    expect(
+      parseCommand("画一个绿色椭圆", {
+        createShapeId: () => "shape-ellipse-1",
+      }).operations[0],
+    ).toMatchObject({
+      type: "create_shape",
+      shape: {
+        id: "shape-ellipse-1",
+        kind: "ellipse",
+        width: 180,
+        height: 96,
+        style: {
+          fill: "#16a34a",
+          stroke: "#15803d",
+        },
+      },
+    });
+  });
+
   it("parses clear canvas commands without creating shapes", () => {
     const result = parseCommand("清空画布");
 

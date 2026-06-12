@@ -92,6 +92,42 @@ function renderShape(shape: DrawingShape) {
         />
       );
 
+    case "triangle":
+      return (
+        <polygon
+          className="shape-core"
+          fill={shape.style.fill ?? DEFAULT_FILL}
+          points={getTrianglePoints(shape)}
+          stroke={shape.style.stroke ?? DEFAULT_STROKE}
+          strokeWidth={shape.style.strokeWidth ?? DEFAULT_STROKE_WIDTH}
+        />
+      );
+
+    case "diamond":
+      return (
+        <polygon
+          className="shape-core"
+          fill={shape.style.fill ?? DEFAULT_FILL}
+          points={getDiamondPoints(shape)}
+          stroke={shape.style.stroke ?? DEFAULT_STROKE}
+          strokeWidth={shape.style.strokeWidth ?? DEFAULT_STROKE_WIDTH}
+        />
+      );
+
+    case "ellipse":
+      return (
+        <ellipse
+          className="shape-core"
+          cx={shape.x + shape.width / 2}
+          cy={shape.y + shape.height / 2}
+          fill={shape.style.fill ?? DEFAULT_FILL}
+          rx={shape.width / 2}
+          ry={shape.height / 2}
+          stroke={shape.style.stroke ?? DEFAULT_STROKE}
+          strokeWidth={shape.style.strokeWidth ?? DEFAULT_STROKE_WIDTH}
+        />
+      );
+
     case "line":
       return (
         <line
@@ -141,6 +177,23 @@ function getRotationTransform(shape: DrawingShape) {
   return `rotate(${shape.rotation} ${shape.x + shape.width / 2} ${
     shape.y + shape.height / 2
   })`;
+}
+
+function getTrianglePoints(shape: DrawingShape) {
+  return [
+    `${shape.x + shape.width / 2},${shape.y}`,
+    `${shape.x + shape.width},${shape.y + shape.height}`,
+    `${shape.x},${shape.y + shape.height}`,
+  ].join(" ");
+}
+
+function getDiamondPoints(shape: DrawingShape) {
+  return [
+    `${shape.x + shape.width / 2},${shape.y}`,
+    `${shape.x + shape.width},${shape.y + shape.height / 2}`,
+    `${shape.x + shape.width / 2},${shape.y + shape.height}`,
+    `${shape.x},${shape.y + shape.height / 2}`,
+  ].join(" ");
 }
 
 function getTextFontSize(shape: DrawingShape) {

@@ -18,7 +18,16 @@ export type OperationValidationResult = {
   errors: OperationValidationError[];
 };
 
-const SHAPE_KINDS: DrawingShapeKind[] = ["circle", "rectangle", "line", "arrow", "text"];
+const SHAPE_KINDS: DrawingShapeKind[] = [
+  "circle",
+  "rectangle",
+  "line",
+  "arrow",
+  "text",
+  "triangle",
+  "diamond",
+  "ellipse",
+];
 
 export function validateDrawingOperations(
   rawOperations: unknown[],
