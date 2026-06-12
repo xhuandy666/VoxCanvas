@@ -1,4 +1,4 @@
-import { parseCommand } from "./commandParser";
+import { parseCommand, type CommandParseResult, type ParseCommandOptions } from "./commandParser";
 
 export type CommandTraceState = {
   parsedIntent: string;
@@ -6,9 +6,9 @@ export type CommandTraceState = {
   feedbackLog: string[];
 };
 
-export function createCommandTraceState(transcript: string): CommandTraceState {
-  const result = parseCommand(transcript);
-
+export function createCommandTraceStateFromResult(
+  result: CommandParseResult,
+): CommandTraceState {
   return {
     parsedIntent: result.intent,
     operationPreview:
@@ -17,4 +17,11 @@ export function createCommandTraceState(transcript: string): CommandTraceState {
         : ["no operation preview"],
     feedbackLog: result.feedback,
   };
+}
+
+export function createCommandTraceState(
+  transcript: string,
+  options: ParseCommandOptions = {},
+): CommandTraceState {
+  return createCommandTraceStateFromResult(parseCommand(transcript, options));
 }

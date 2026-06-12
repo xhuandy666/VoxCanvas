@@ -4,7 +4,10 @@ import { CommandTracePanel } from "./components/CommandTracePanel";
 import { TopBar } from "./components/TopBar";
 import { VoicePanel } from "./components/VoicePanel";
 import { parseCommand } from "./commands/commandParser";
-import { createCommandTraceState } from "./commands/commandTrace";
+import {
+  createCommandTraceState,
+  createCommandTraceStateFromResult,
+} from "./commands/commandTrace";
 import { mockAppState } from "./data/mockAppState";
 import { createEmptyCanvasState } from "./drawing/drawingState";
 import {
@@ -28,6 +31,7 @@ export default function App() {
   });
   const hasSkippedInitialTranscript = useRef(false);
   const [drawingSession, setDrawingSession] = useState(() => ({
+    commandTraceState: createCommandTraceState(mockAppState.transcript),
     historyState: createHistoryState(createEmptyCanvasState()),
     queueState: createOperationQueueState(),
   }));
@@ -62,6 +66,7 @@ export default function App() {
       }
 
       return {
+        commandTraceState: currentSession.commandTraceState,
         historyState: commitHistoryState(currentSession.historyState, result.canvasState),
         queueState: result.queueState,
       };
@@ -77,16 +82,22 @@ export default function App() {
     setDrawingSession((currentSession) => {
       const nextBatchNumber = currentSession.queueState.executedBatchIds.length + 1;
       const commandResult = parseCommand(browserSpeech.transcript, {
+        canvasState: currentSession.historyState.present,
         createShapeId: (kind) => `voice-${kind}-${nextBatchNumber}`,
       });
+      const commandTraceState = createCommandTraceStateFromResult(commandResult);
 
       if (commandResult.status !== "matched") {
-        return currentSession;
+        return {
+          ...currentSession,
+          commandTraceState,
+        };
       }
 
       if (commandResult.intent === "undo") {
         return {
           ...currentSession,
+          commandTraceState,
           historyState: undoHistoryState(currentSession.historyState),
         };
       }
@@ -94,12 +105,16 @@ export default function App() {
       if (commandResult.intent === "redo") {
         return {
           ...currentSession,
+          commandTraceState,
           historyState: redoHistoryState(currentSession.historyState),
         };
       }
 
       if (commandResult.operations.length === 0) {
-        return currentSession;
+        return {
+          ...currentSession,
+          commandTraceState,
+        };
       }
 
       const result = executeOperationBatch(
@@ -112,10 +127,14 @@ export default function App() {
       );
 
       if (!result.executed) {
-        return currentSession;
+        return {
+          ...currentSession,
+          commandTraceState,
+        };
       }
 
       return {
+        commandTraceState,
         historyState: commitHistoryState(currentSession.historyState, result.canvasState),
         queueState: result.queueState,
       };
@@ -126,7 +145,7 @@ export default function App() {
 
   const appState = {
     ...mockAppState,
-    ...createCommandTraceState(browserSpeech.transcript),
+    ...drawingSession.commandTraceState,
     speechStatus: browserSpeech.speechStatus,
     transcript: browserSpeech.transcript,
   };

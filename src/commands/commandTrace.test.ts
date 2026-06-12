@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { applyDrawingOperation, createEmptyCanvasState } from "../drawing/drawingState";
 import { createCommandTraceState } from "./commandTrace";
 
 describe("createCommandTraceState", () => {
@@ -18,7 +19,32 @@ describe("createCommandTraceState", () => {
     expect(traceState).toEqual({
       parsedIntent: "unknown",
       operationPreview: ["no operation preview"],
-      feedbackLog: ["暂不支持对象引用指令，将在后续对象引用 PR 中接入"],
+      feedbackLog: ["没有可引用的对象，请先创建图形"],
+    });
+  });
+
+  it("maps object-reference parser output into command trace state", () => {
+    const canvasState = applyDrawingOperation(createEmptyCanvasState(), {
+      type: "create_shape",
+      shape: {
+        id: "shape-1",
+        kind: "circle",
+        x: 410,
+        y: 230,
+        width: 140,
+        height: 140,
+        rotation: 0,
+        style: {
+          fill: "#2563eb",
+        },
+      },
+    });
+    const traceState = createCommandTraceState("把它向右移动一点", { canvasState });
+
+    expect(traceState).toEqual({
+      parsedIntent: "move_shape",
+      operationPreview: ["move shape: shape-1, dx: 60, dy: 0"],
+      feedbackLog: ["已解析为移动最近对象操作"],
     });
   });
 });
