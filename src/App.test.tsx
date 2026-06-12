@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import App from "./App";
 
@@ -14,23 +14,60 @@ describe("App", () => {
       screen.getByRole("main", { name: /drawing canvas workspace/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /command trace/i })).toBeInTheDocument();
-    expect(screen.getAllByText("画一个蓝色圆形")).toHaveLength(3);
-    expect(screen.getByText("create_shape")).toBeInTheDocument();
-    expect(screen.getByText("已解析为创建圆形操作")).toBeInTheDocument();
+    expect(screen.getByText("unknown")).toBeInTheDocument();
+    expect(screen.getByText("no operation preview")).toBeInTheDocument();
+    expect(screen.getByText("等待语音输入")).toBeInTheDocument();
   });
 
-  it("renders the PR-03 SVG canvas demo shapes", () => {
+  it("renders an empty SVG canvas before the first executable transcript", () => {
     render(<App />);
 
     expect(
       screen.getByRole("img", { name: /rendered drawing canvas/i }),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("shape-demo-circle")).toBeInTheDocument();
-    expect(screen.getByTestId("shape-demo-rectangle")).toHaveAttribute(
-      "data-selected",
-      "true",
+    expect(
+      screen.getByText("Canvas is ready for voice-created shapes."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Waiting for the first drawing operation.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("circle shape")).not.toBeInTheDocument();
+  });
+
+  it("executes a simulated transcript into a canvas shape", async () => {
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /simulate transcript/i }), {
+      target: {
+        value: "在左上角画一个红色矩形",
+      },
+    });
+
+    expect(await screen.findByLabelText("rectangle shape")).toHaveAttribute(
+      "data-kind",
+      "rectangle",
     );
-    expect(screen.getByText("语音草图")).toBeInTheDocument();
+    expect(screen.getByText("1 shapes / v1")).toBeInTheDocument();
+    expect(screen.getByText("已解析为创建矩形操作")).toBeInTheDocument();
+  });
+
+  it("keeps same-kind shapes from separate transcripts", async () => {
+    render(<App />);
+    const transcriptInput = screen.getByRole("textbox", {
+      name: /simulate transcript/i,
+    });
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "在左上角画一个红色矩形",
+      },
+    });
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "在右上角画一个蓝色矩形",
+      },
+    });
+
+    expect(await screen.findAllByLabelText("rectangle shape")).toHaveLength(2);
+    expect(screen.getByText("2 shapes / v2")).toBeInTheDocument();
   });
 
   it("disables unavailable speech and keeps future canvas actions disabled", () => {

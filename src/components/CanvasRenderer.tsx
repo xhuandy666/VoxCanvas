@@ -55,7 +55,7 @@ export function CanvasRenderer({ state }: CanvasRendererProps) {
       {!hasShapes && (
         <div className="canvas-empty-state">
           <p className="empty-title">Canvas is ready for voice-created shapes.</p>
-          <p>PR-03 connects the drawing state model to a visible SVG canvas.</p>
+          <p>Waiting for the first drawing operation.</p>
         </div>
       )}
     </div>

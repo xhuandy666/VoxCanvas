@@ -53,6 +53,11 @@ export function useBrowserSpeech({ initialTranscript, language }: UseBrowserSpee
     provider.stop();
   }, [provider]);
 
+  const updateTranscript = useCallback((nextTranscript: string) => {
+    setTranscript(nextTranscript);
+    setSpeechError(null);
+  }, []);
+
   return {
     isSupported,
     speechError,
@@ -60,5 +65,6 @@ export function useBrowserSpeech({ initialTranscript, language }: UseBrowserSpee
     start,
     stop,
     transcript,
+    updateTranscript,
   };
 }
