@@ -39,6 +39,8 @@ MVP 优先采用浏览器语音识别能力完成端到端闭环：
 
 本项目使用 pnpm 管理前端依赖。
 
+运行前需确保 Node.js 与 pnpm 可用。本机 Codex 环境中可使用 `/Users/xhuandy/Documents/Codex/projects/bin/pnpm`；如果命令提示 `node not found`，需要先把 Node.js 加入 PATH。
+
 ```bash
 pnpm install
 pnpm dev
@@ -58,4 +60,4 @@ pnpm build
 
 ## 依赖声明
 
-实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。PR-01 引入 Vite、React、TypeScript、Vitest 与 Testing Library，用于前端应用脚手架、类型检查和基础组件测试。当前未引入语音识别模型、图片生成模型、LLM SDK 或后端服务依赖。
+实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。PR-01 引入 Vite、React、TypeScript、Vitest 与 Testing Library，用于前端应用脚手架、类型检查和基础组件测试。同时引入 `@vitejs/plugin-react`、`jsdom`、`@testing-library/jest-dom` 与 React 类型包，用于 React 编译支持、测试 DOM 环境、测试断言扩展和 TypeScript 类型检查。当前未引入语音识别模型、图片生成模型、LLM SDK 或后端服务依赖。
