@@ -16,6 +16,7 @@ describe("App", () => {
     expect(screen.getByRole("region", { name: /command trace/i })).toBeInTheDocument();
     expect(screen.getAllByText("画一个蓝色圆形")).toHaveLength(3);
     expect(screen.getByText("create_shape")).toBeInTheDocument();
+    expect(screen.getByText("已解析为创建圆形操作")).toBeInTheDocument();
   });
 
   it("renders the PR-03 SVG canvas demo shapes", () => {

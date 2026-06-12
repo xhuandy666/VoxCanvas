@@ -15,7 +15,7 @@
 
 ## 当前阶段
 
-当前处于 PR-04 浏览器语音识别阶段，已建立：
+当前处于 PR-05 基础指令解析阶段，已建立：
 
 - 项目开发文档：`docs/project-development-document.md`
 - 开发纪律与提交规范：`docs/development-discipline.md`
@@ -27,6 +27,7 @@
 - 画布状态、图形模型与统一绘图操作 schema：`src/drawing/drawingState.ts`
 - SVG 画布渲染器：`src/components/CanvasRenderer.tsx`
 - 浏览器语音识别抽象与实现：`src/speech/browserSpeechProvider.ts`
+- 基础本地指令解析器：`src/commands/commandParser.ts`
 
 ## 技术方向
 
@@ -51,7 +52,7 @@ pnpm test:run
 pnpm build
 ```
 
-当前 PR-04 已提供画布状态模型、SVG 静态渲染能力、`SpeechProvider` 抽象和浏览器语音识别入口。应用可以通过浏览器 `SpeechRecognition` 获取语音文本并显示在 transcript 区域，但仍不会解析真实语音指令或执行绘图操作；指令解析将在后续 PR 接入。
+当前 PR-05 已提供画布状态模型、SVG 静态渲染能力、`SpeechProvider` 抽象、浏览器语音识别入口和基础本地指令解析能力。应用可以把 transcript 解析为 `DrawingOperation[]` 预览并显示在 Command trace 区域，但仍不会真正执行绘图操作；操作队列和画布状态更新将在后续 PR 接入。
 
 ## 提交材料目标
 
@@ -63,4 +64,4 @@ pnpm build
 
 ## 依赖声明
 
-实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。PR-01 引入 Vite、React、TypeScript、Vitest 与 Testing Library，用于前端应用脚手架、类型检查和基础组件测试。同时引入 `@vitejs/plugin-react`、`jsdom`、`@testing-library/jest-dom` 与 React 类型包，用于 React 编译支持、测试 DOM 环境、测试断言扩展和 TypeScript 类型检查。PR-02、PR-03 与 PR-04 未新增第三方依赖。当前未引入语音识别模型、图片生成模型、LLM SDK 或后端服务依赖。
+实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。PR-01 引入 Vite、React、TypeScript、Vitest 与 Testing Library，用于前端应用脚手架、类型检查和基础组件测试。同时引入 `@vitejs/plugin-react`、`jsdom`、`@testing-library/jest-dom` 与 React 类型包，用于 React 编译支持、测试 DOM 环境、测试断言扩展和 TypeScript 类型检查。PR-02、PR-03、PR-04 与 PR-05 未新增第三方依赖。当前未引入语音识别模型、图片生成模型、LLM SDK 或后端服务依赖。
