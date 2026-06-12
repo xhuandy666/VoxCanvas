@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyDrawingOperation, createEmptyCanvasState } from "../drawing/drawingState";
+import { validateDrawingOperations } from "../planning/operationValidator";
 import { parseCommand } from "./commandParser";
 
 function createReferenceCanvasState() {
@@ -200,6 +201,117 @@ describe("parseCommand", () => {
         },
       },
     });
+  });
+
+  it("expands a house sketch command into legal create operations", () => {
+    const result = parseCommand(
+      "画一座房子，有红色屋顶、黄色墙体、两个窗户和一扇门",
+      {
+        createShapeId: (kind) => `voice-${kind}-1`,
+      },
+    );
+
+    expect(result.status).toBe("matched");
+    expect(result.intent).toBe("create_template");
+    expect(result.operations).toHaveLength(5);
+    expect(result.operationPreview).toEqual([
+      "expand template: house, shapes: wall, roof, window-left, window-right, door",
+    ]);
+    expect(result.feedback).toEqual(["已展开房子草图模板"]);
+    expect(validateDrawingOperations(result.operations, createEmptyCanvasState()).valid).toBe(
+      true,
+    );
+    expect(result.operations.slice(0, 5)).toMatchObject([
+      {
+        type: "create_shape",
+        shape: {
+          id: "voice-rectangle-1-wall",
+          kind: "rectangle",
+        },
+      },
+      {
+        type: "create_shape",
+        shape: {
+          id: "voice-triangle-1-roof",
+          kind: "triangle",
+        },
+      },
+      {
+        type: "create_shape",
+        shape: {
+          id: "voice-rectangle-1-window-left",
+          kind: "rectangle",
+        },
+      },
+      {
+        type: "create_shape",
+        shape: {
+          id: "voice-rectangle-1-window-right",
+          kind: "rectangle",
+        },
+      },
+      {
+        type: "create_shape",
+        shape: {
+          id: "voice-rectangle-1-door",
+          kind: "rectangle",
+        },
+      },
+    ]);
+  });
+
+  it("expands a flowchart command into legal create operations", () => {
+    const result = parseCommand("画一个流程图", {
+      createShapeId: (kind) => `voice-${kind}-1`,
+    });
+
+    expect(result.status).toBe("matched");
+    expect(result.intent).toBe("create_template");
+    expect(result.operations).toHaveLength(8);
+    expect(result.operationPreview).toEqual([
+      "expand template: flowchart, shapes: start, decision, process, labels",
+    ]);
+    expect(result.feedback).toEqual(["已展开流程图模板"]);
+    expect(validateDrawingOperations(result.operations, createEmptyCanvasState()).valid).toBe(
+      true,
+    );
+    expect(result.operations.slice(0, 5)).toMatchObject([
+      {
+        type: "create_shape",
+        shape: {
+          id: "voice-ellipse-1-start",
+          kind: "ellipse",
+        },
+      },
+      {
+        type: "create_shape",
+        shape: {
+          id: "voice-arrow-1-start-to-decision",
+          kind: "arrow",
+        },
+      },
+      {
+        type: "create_shape",
+        shape: {
+          id: "voice-diamond-1-decision",
+          kind: "diamond",
+        },
+      },
+      {
+        type: "create_shape",
+        shape: {
+          id: "voice-arrow-1-decision-to-process",
+          kind: "arrow",
+        },
+      },
+      {
+        type: "create_shape",
+        shape: {
+          id: "voice-rectangle-1-process",
+          kind: "rectangle",
+        },
+      },
+    ]);
   });
 
   it("parses clear canvas commands without creating shapes", () => {

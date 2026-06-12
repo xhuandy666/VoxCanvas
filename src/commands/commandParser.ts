@@ -5,11 +5,16 @@ import type {
   DrawingShapeKind,
   DrawingShapeStyle,
 } from "../drawing/drawingState";
+import {
+  expandShapeTemplate,
+  type ShapeTemplateKind,
+} from "./shapeTemplateExpander";
 
 export type CommandParseStatus = "matched" | "unsupported" | "empty";
 
 export type CommandIntent =
   | "create_shape"
+  | "create_template"
   | "update_shape"
   | "move_shape"
   | "delete_shape"
@@ -174,6 +179,12 @@ export function parseCommand(
     };
   }
 
+  const templateKind = findShapeTemplateKind(normalizedTranscript);
+
+  if (templateKind) {
+    return createTemplateResult(templateKind, normalizedTranscript, options);
+  }
+
   if (isObjectReferenceCommand(normalizedTranscript)) {
     return createObjectReferenceResult(normalizedTranscript, options);
   }
@@ -191,6 +202,26 @@ export function parseCommand(
     operationPreview: [],
     feedback: ["暂时无法解析这条绘图指令"],
     normalizedTranscript,
+  };
+}
+
+function createTemplateResult(
+  template: ShapeTemplateKind,
+  transcript: string,
+  options: ParseCommandOptions,
+): CommandParseResult {
+  const result = expandShapeTemplate(template, {
+    createShapeId: options.createShapeId,
+    transcript,
+  });
+
+  return {
+    status: "matched",
+    intent: "create_template",
+    operations: result.operations,
+    operationPreview: result.operationPreview,
+    feedback: result.feedback,
+    normalizedTranscript: transcript,
   };
 }
 
@@ -471,6 +502,18 @@ function isDeleteCommand(transcript: string) {
 
 function isObjectReferenceCommand(transcript: string) {
   return /(它|刚才|这个|那个)/.test(transcript);
+}
+
+function findShapeTemplateKind(transcript: string): ShapeTemplateKind | null {
+  if (/房子|房屋|小房子|小屋/.test(transcript)) {
+    return "house";
+  }
+
+  if (/流程图|流程草图|处理流程|步骤图/.test(transcript)) {
+    return "flowchart";
+  }
+
+  return null;
 }
 
 function findReferencedShapeKind(transcript: string): DrawingShapeKind | null {
