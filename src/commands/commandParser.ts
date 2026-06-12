@@ -378,6 +378,21 @@ function getDefaultSize(kind: DrawingShapeKind) {
         width: 180,
         height: 120,
       };
+    case "triangle":
+      return {
+        width: 180,
+        height: 140,
+      };
+    case "diamond":
+      return {
+        width: 160,
+        height: 120,
+      };
+    case "ellipse":
+      return {
+        width: 180,
+        height: 96,
+      };
     case "line":
     case "arrow":
       return {
@@ -557,6 +572,18 @@ function getScaledShapePatch(shape: DrawingShape, scale: number) {
 }
 
 function findShapeKind(transcript: string): DrawingShapeKind | null {
+  if (/三角形|三角/.test(transcript)) {
+    return "triangle";
+  }
+
+  if (/菱形|钻石形/.test(transcript)) {
+    return "diamond";
+  }
+
+  if (/椭圆形|椭圆/.test(transcript)) {
+    return "ellipse";
+  }
+
   if (/圆形|圆/.test(transcript)) {
     return "circle";
   }
@@ -609,6 +636,12 @@ function getShapeLabel(kind: DrawingShapeKind) {
       return "圆形";
     case "rectangle":
       return "矩形";
+    case "triangle":
+      return "三角形";
+    case "diamond":
+      return "菱形";
+    case "ellipse":
+      return "椭圆";
     case "line":
       return "线条";
     case "arrow":

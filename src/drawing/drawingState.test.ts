@@ -47,6 +47,74 @@ describe("drawingState", () => {
     expect(state.shapes).toHaveLength(0);
   });
 
+  it("stores expanded primitive shape kinds through the same create operation", () => {
+    const state = createEmptyCanvasState();
+    const operations = [
+      {
+        type: "create_shape",
+        shape: {
+          id: "shape-triangle-1",
+          kind: "triangle",
+          x: 380,
+          y: 120,
+          width: 200,
+          height: 120,
+          rotation: 0,
+          style: {
+            fill: "#dc2626",
+            stroke: "#991b1b",
+            strokeWidth: 2,
+          },
+        },
+      },
+      {
+        type: "create_shape",
+        shape: {
+          id: "shape-diamond-1",
+          kind: "diamond",
+          x: 390,
+          y: 260,
+          width: 180,
+          height: 120,
+          rotation: 0,
+          style: {
+            fill: "#facc15",
+            stroke: "#ca8a04",
+            strokeWidth: 2,
+          },
+        },
+      },
+      {
+        type: "create_shape",
+        shape: {
+          id: "shape-ellipse-1",
+          kind: "ellipse",
+          x: 390,
+          y: 420,
+          width: 180,
+          height: 96,
+          rotation: 0,
+          style: {
+            fill: "#16a34a",
+            stroke: "#15803d",
+            strokeWidth: 2,
+          },
+        },
+      },
+    ] satisfies DrawingOperation[];
+
+    const next = operations.reduce(applyDrawingOperation, state);
+
+    expect(next.shapes.map((shape) => shape.kind)).toEqual([
+      "triangle",
+      "diamond",
+      "ellipse",
+    ]);
+    expect(next.selectedShapeId).toBe("shape-ellipse-1");
+    expect(next.lastShapeId).toBe("shape-ellipse-1");
+    expect(next.version).toBe(3);
+  });
+
   it("does not keep external references to created shapes", () => {
     const state = createEmptyCanvasState();
     const operation = {

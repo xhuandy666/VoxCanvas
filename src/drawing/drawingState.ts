@@ -1,4 +1,12 @@
-export type DrawingShapeKind = "circle" | "rectangle" | "line" | "arrow" | "text";
+export type DrawingShapeKind =
+  | "circle"
+  | "rectangle"
+  | "line"
+  | "arrow"
+  | "text"
+  | "triangle"
+  | "diamond"
+  | "ellipse";
 
 export type DrawingShapeStyle = {
   fill?: string;
