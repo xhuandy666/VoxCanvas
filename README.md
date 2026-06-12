@@ -1,4 +1,4 @@
-# VoiceCanvas AI
+# VoxCanvas
 
 纯语音控制的 AI 绘图工具。用户通过语音指令完成图形创建、样式调整、对象选择、移动、删除、撤销、重做和复杂组合绘制。
 
@@ -15,12 +15,15 @@
 
 ## 当前阶段
 
-当前处于正式编码前的项目准备阶段，已建立：
+当前处于 PR-01 应用脚手架阶段，已建立：
 
 - 项目开发文档：`docs/project-development-document.md`
 - 开发纪律与提交规范：`docs/development-discipline.md`
 - 迭代与 PR 计划：`docs/iteration-plan.md`
 - PR 描述模板：`.github/PULL_REQUEST_TEMPLATE.md`
+- 产品上下文：`PRODUCT.md`
+- PR-01 前端骨架设计摘要：见 `docs/project-development-document.md`
+- 可运行前端脚手架：Vite + React + TypeScript
 
 ## 技术方向
 
@@ -32,6 +35,21 @@ MVP 优先采用浏览器语音识别能力完成端到端闭环：
 
 绘图能力采用 Web 前端实现，后续根据实现阶段确定 Canvas 或 SVG 渲染方案。
 
+## 本地运行
+
+本项目使用 pnpm 管理前端依赖。
+
+运行前需确保 Node.js 与 pnpm 可用；如果命令提示 `node not found`，需要先安装 Node.js 或把 Node.js 加入 PATH。
+
+```bash
+pnpm install
+pnpm dev
+pnpm test:run
+pnpm build
+```
+
+当前 PR-01 只提供静态应用骨架，不会申请麦克风权限，也不会执行真实绘图。
+
 ## 提交材料目标
 
 - 公开 GitHub 或 Gitee 仓库。
@@ -42,4 +60,4 @@ MVP 优先采用浏览器语音识别能力完成端到端闭环：
 
 ## 依赖声明
 
-实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。当前阶段尚未引入应用运行依赖。
+实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。PR-01 引入 Vite、React、TypeScript、Vitest 与 Testing Library，用于前端应用脚手架、类型检查和基础组件测试。同时引入 `@vitejs/plugin-react`、`jsdom`、`@testing-library/jest-dom` 与 React 类型包，用于 React 编译支持、测试 DOM 环境、测试断言扩展和 TypeScript 类型检查。当前未引入语音识别模型、图片生成模型、LLM SDK 或后端服务依赖。

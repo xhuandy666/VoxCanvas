@@ -34,3 +34,5 @@ models/
 # Temporary files
 tmp/
 .cache/
+.superpowers/
+docs/superpowers/
