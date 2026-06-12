@@ -15,7 +15,7 @@
 
 ## 当前阶段
 
-当前处于 PR-02 画布状态模型阶段，已建立：
+当前处于 PR-03 画布渲染阶段，已建立：
 
 - 项目开发文档：`docs/project-development-document.md`
 - 开发纪律与提交规范：`docs/development-discipline.md`
@@ -25,6 +25,7 @@
 - PR-01 前端骨架设计摘要：见 `docs/project-development-document.md`
 - 可运行前端脚手架：Vite + React + TypeScript
 - 画布状态、图形模型与统一绘图操作 schema：`src/drawing/drawingState.ts`
+- SVG 画布渲染器：`src/components/CanvasRenderer.tsx`
 
 ## 技术方向
 
@@ -34,7 +35,7 @@ MVP 优先采用浏览器语音识别能力完成端到端闭环：
 - `SpeechProvider`：统一语音识别接口。
 - `LocalSpeechProvider`：仅预留接口，后续有时间可接入 whisper.cpp、faster-whisper 或 Vosk。
 
-绘图能力采用 Web 前端实现，后续根据实现阶段确定 Canvas 或 SVG 渲染方案。
+绘图能力采用 Web 前端实现，当前阶段使用 SVG 渲染圆、矩形、线条、箭头和文本，后续指令解析与操作队列会复用同一画布状态模型。
 
 ## 本地运行
 
@@ -49,7 +50,7 @@ pnpm test:run
 pnpm build
 ```
 
-当前 PR-02 已提供画布状态模型和纯函数状态更新能力，但仍不会申请麦克风权限，也不会渲染真实绘图；画布渲染将在后续 PR 接入。
+当前 PR-03 已提供画布状态模型、纯函数状态更新能力和 SVG 静态渲染能力，但仍不会申请麦克风权限，也不会解析真实语音指令；语音识别与指令解析将在后续 PR 接入。
 
 ## 提交材料目标
 
@@ -61,4 +62,4 @@ pnpm build
 
 ## 依赖声明
 
-实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。PR-01 引入 Vite、React、TypeScript、Vitest 与 Testing Library，用于前端应用脚手架、类型检查和基础组件测试。同时引入 `@vitejs/plugin-react`、`jsdom`、`@testing-library/jest-dom` 与 React 类型包，用于 React 编译支持、测试 DOM 环境、测试断言扩展和 TypeScript 类型检查。当前未引入语音识别模型、图片生成模型、LLM SDK 或后端服务依赖。
+实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。PR-01 引入 Vite、React、TypeScript、Vitest 与 Testing Library，用于前端应用脚手架、类型检查和基础组件测试。同时引入 `@vitejs/plugin-react`、`jsdom`、`@testing-library/jest-dom` 与 React 类型包，用于 React 编译支持、测试 DOM 环境、测试断言扩展和 TypeScript 类型检查。PR-02 与 PR-03 未新增第三方依赖。当前未引入语音识别模型、图片生成模型、LLM SDK 或后端服务依赖。
