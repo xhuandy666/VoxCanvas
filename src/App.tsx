@@ -8,7 +8,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <TopBar />
-      <div className="workbench" aria-label="VoiceCanvas AI workbench">
+      <div className="workbench" aria-label="VoxCanvas workbench">
         <CanvasStage />
         <VoicePanel state={mockAppState} />
         <CommandTracePanel state={mockAppState} />

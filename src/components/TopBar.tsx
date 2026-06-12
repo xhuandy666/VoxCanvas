@@ -1,13 +1,13 @@
 export function TopBar() {
   return (
-    <header className="top-bar" aria-label="VoiceCanvas AI application header">
+    <header className="top-bar" aria-label="VoxCanvas application header">
       <div className="brand-lockup">
         <span className="brand-mark" aria-hidden="true">
           VC
         </span>
         <div>
           <p className="app-kicker">Voice-first drawing workspace</p>
-          <h1>VoiceCanvas AI</h1>
+          <h1>VoxCanvas</h1>
         </div>
       </div>
 

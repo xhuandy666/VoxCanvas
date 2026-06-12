@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the first runnable VoiceCanvas AI frontend scaffold with a wide central canvas, narrow voice/control panels, static placeholder state, tests, and documentation.
+**Goal:** Build the first runnable VoxCanvas frontend scaffold with a wide central canvas, narrow voice/control panels, static placeholder state, tests, and documentation.
 
 **Architecture:** Create a Vite + React + TypeScript app by hand instead of relying on an interactive scaffold. Keep PR-01 strictly presentational: static `mockAppState` feeds small focused components, while real speech recognition, drawing, parsing, queues, history, and LLM/API work remain out of scope.
 
@@ -17,7 +17,7 @@ The PR-01 spec is scoped to one independently testable subsystem: the runnable f
 ## Environment Notes
 
 - The default shell currently does not expose `node` or `npm` on `PATH`.
-- A usable package manager exists at `/Users/xhuandy/Documents/Codex/projects/bin/pnpm`.
+- A usable package manager exists at `pnpm`.
 - If dependency installation fails because of network sandboxing, rerun the same pnpm command with sandbox escalation and a clear approval prompt.
 - Do not commit `.superpowers/`, `node_modules/`, `dist/`, `.env`, recordings, local cache files, or model files.
 
@@ -66,7 +66,7 @@ Create `package.json` with this content:
 
 ```json
 {
-  "name": "voice-canvas-ai",
+  "name": "voxcanvas",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -86,7 +86,7 @@ Create `package.json` with this content:
 Run:
 
 ```bash
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm add react react-dom
+pnpm add react react-dom
 ```
 
 Expected: `react` and `react-dom` are added to `dependencies`, and `pnpm-lock.yaml` is created or updated.
@@ -96,7 +96,7 @@ Expected: `react` and `react-dom` are added to `dependencies`, and `pnpm-lock.ya
 Run:
 
 ```bash
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm add -D @vitejs/plugin-react vite typescript vitest jsdom @testing-library/react @testing-library/jest-dom @types/react @types/react-dom
+pnpm add -D @vitejs/plugin-react vite typescript vitest jsdom @testing-library/react @testing-library/jest-dom @types/react @types/react-dom
 ```
 
 Expected: the listed packages are added to `devDependencies`, and `pnpm-lock.yaml` is updated.
@@ -113,9 +113,9 @@ Create `index.html` with this content:
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="VoiceCanvas AI is a voice-first drawing workspace scaffold."
+      content="VoxCanvas is a voice-first drawing workspace scaffold."
     />
-    <title>VoiceCanvas AI</title>
+    <title>VoxCanvas</title>
   </head>
   <body>
     <div id="root"></div>
@@ -214,7 +214,7 @@ Create `src/vite-env.d.ts` with this content:
 Run:
 
 ```bash
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm run
+pnpm run
 ```
 
 Expected: output lists `dev`, `build`, `preview`, `test`, and `test:run`.
@@ -271,7 +271,7 @@ describe("mockAppState", () => {
 Run:
 
 ```bash
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm test:run src/data/mockAppState.test.ts
+pnpm test:run src/data/mockAppState.test.ts
 ```
 
 Expected: FAIL because `src/data/mockAppState.ts` does not exist.
@@ -315,7 +315,7 @@ export const mockAppState: MockAppState = {
 Run:
 
 ```bash
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm test:run src/data/mockAppState.test.ts
+pnpm test:run src/data/mockAppState.test.ts
 ```
 
 Expected: PASS for `mockAppState`.
@@ -385,7 +385,7 @@ describe("App", () => {
 Run:
 
 ```bash
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm test:run src/App.test.tsx
+pnpm test:run src/App.test.tsx
 ```
 
 Expected: FAIL because `src/App.tsx` does not exist.
@@ -443,7 +443,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <TopBar />
-      <div className="workbench" aria-label="VoiceCanvas AI workbench">
+      <div className="workbench" aria-label="VoxCanvas workbench">
         <VoicePanel state={mockAppState} />
         <CanvasStage />
         <CommandTracePanel state={mockAppState} />
@@ -460,14 +460,14 @@ Create `src/components/TopBar.tsx` with this content:
 ```tsx
 export function TopBar() {
   return (
-    <header className="top-bar" aria-label="VoiceCanvas AI application header">
+    <header className="top-bar" aria-label="VoxCanvas application header">
       <div className="brand-lockup">
         <span className="brand-mark" aria-hidden="true">
           VC
         </span>
         <div>
           <p className="app-kicker">Voice-first drawing workspace</p>
-          <h1>VoiceCanvas AI</h1>
+          <h1>VoxCanvas</h1>
         </div>
       </div>
 
@@ -626,7 +626,7 @@ export function CommandTracePanel({ state }: CommandTracePanelProps) {
 Run:
 
 ```bash
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm test:run src/App.test.tsx
+pnpm test:run src/App.test.tsx
 ```
 
 Expected: FAIL because `src/styles.css` does not exist and is imported by `src/main.tsx`. If the test passes because `main.tsx` is not imported by `App.test.tsx`, continue to Task 5 and run the full test suite after CSS exists.
@@ -1046,7 +1046,7 @@ textarea {
 Run:
 
 ```bash
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm test:run
+pnpm test:run
 ```
 
 Expected: PASS for `src/data/mockAppState.test.ts` and `src/App.test.tsx`.
@@ -1056,7 +1056,7 @@ Expected: PASS for `src/data/mockAppState.test.ts` and `src/App.test.tsx`.
 Run:
 
 ```bash
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm build
+pnpm build
 ```
 
 Expected: PASS with TypeScript build and Vite production output in ignored `dist/`.
@@ -1138,8 +1138,8 @@ PR-01 已建立可运行前端应用骨架，采用两边窄、中间宽的 Voic
 Run:
 
 ```bash
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm test:run
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm build
+pnpm test:run
+pnpm build
 ```
 
 Expected: both commands pass.
@@ -1165,7 +1165,7 @@ Expected: a docs-only commit.
 Run:
 
 ```bash
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm dev
+pnpm dev
 ```
 
 Expected: Vite reports a local URL, usually `http://127.0.0.1:5173/`.
@@ -1174,7 +1174,7 @@ Expected: Vite reports a local URL, usually `http://127.0.0.1:5173/`.
 
 Use the Browser plugin or in-app browser tooling to open the Vite URL.
 
-Expected: the page renders `VoiceCanvas AI`, left `Voice control`, center `Drawing canvas workspace`, and right `Command trace`.
+Expected: the page renders `VoxCanvas`, left `Voice control`, center `Drawing canvas workspace`, and right `Command trace`.
 
 - [ ] **Step 3: Verify desktop layout**
 
@@ -1200,8 +1200,8 @@ At a narrow/mobile viewport, check:
 Run:
 
 ```bash
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm test:run
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm build
+pnpm test:run
+pnpm build
 git status --short --ignored
 ```
 
@@ -1216,8 +1216,8 @@ Expected:
 If browser verification requires a CSS or markup fix, make the smallest targeted edit and run:
 
 ```bash
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm test:run
-/Users/xhuandy/Documents/Codex/projects/bin/pnpm build
+pnpm test:run
+pnpm build
 git add src README.md docs/project-development-document.md
 git commit -m "fix: polish app scaffold layout"
 ```

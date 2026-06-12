@@ -1,4 +1,4 @@
-# VoiceCanvas AI
+# VoxCanvas
 
 纯语音控制的 AI 绘图工具。用户通过语音指令完成图形创建、样式调整、对象选择、移动、删除、撤销、重做和复杂组合绘制。
 
@@ -39,7 +39,7 @@ MVP 优先采用浏览器语音识别能力完成端到端闭环：
 
 本项目使用 pnpm 管理前端依赖。
 
-运行前需确保 Node.js 与 pnpm 可用。本机 Codex 环境中可使用 `/Users/xhuandy/Documents/Codex/projects/bin/pnpm`；如果命令提示 `node not found`，需要先把 Node.js 加入 PATH。
+运行前需确保 Node.js 与 pnpm 可用；如果命令提示 `node not found`，需要先安装 Node.js 或把 Node.js 加入 PATH。
 
 ```bash
 pnpm install

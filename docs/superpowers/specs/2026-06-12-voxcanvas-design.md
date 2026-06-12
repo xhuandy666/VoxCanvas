@@ -1,4 +1,4 @@
-# VoiceCanvas AI Design Spec
+# VoxCanvas Design Spec
 
 日期：2026-06-12
 

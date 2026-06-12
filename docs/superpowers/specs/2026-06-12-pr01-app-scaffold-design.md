@@ -4,7 +4,7 @@
 
 ## 决策摘要
 
-PR-01 的目标是建立 VoiceCanvas AI 的可运行前端脚手架和第一版应用骨架。它不实现真实语音识别、绘图引擎、指令解析、操作队列、历史栈或 AI/LLM 能力。
+PR-01 的目标是建立 VoxCanvas 的可运行前端脚手架和第一版应用骨架。它不实现真实语音识别、绘图引擎、指令解析、操作队列、历史栈或 AI/LLM 能力。
 
 本 PR 采用方案 A：`Voice Workbench`。桌面端使用两边窄、中间宽的三栏布局：
 
@@ -143,7 +143,7 @@ PR-01 内容：
 
 PR-01 内容：
 
-- 产品名 `VoiceCanvas AI`。
+- 产品名 `VoxCanvas`。
 - 简短状态，例如 `Prototype scaffold`。
 - 未来全局能力占位，例如 undo/redo/clear 的 disabled 按钮。
 
@@ -219,7 +219,7 @@ PR-01 至少展示三类状态：
 PR-01 完成后需要验证：
 
 - 本地安装依赖后应用可以启动。
-- 页面显示 `VoiceCanvas AI` 应用骨架。
+- 页面显示 `VoxCanvas` 应用骨架。
 - 桌面端呈现两边窄、中间宽的 workbench。
 - 窄屏下区域不重叠、不横向溢出。
 - 主按钮、输入框、disabled 控件有可见 focus/disabled 状态。

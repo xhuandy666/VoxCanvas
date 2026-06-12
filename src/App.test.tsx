@@ -7,7 +7,7 @@ describe("App", () => {
     render(<App />);
 
     expect(
-      screen.getByRole("banner", { name: /voicecanvas ai application header/i }),
+      screen.getByRole("banner", { name: /voxcanvas application header/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole("region", { name: /voice control/i })).toBeInTheDocument();
     expect(
@@ -30,7 +30,7 @@ describe("App", () => {
   it("keeps canvas first in source order for narrow-screen linear navigation", () => {
     render(<App />);
 
-    const workbench = screen.getByLabelText("VoiceCanvas AI workbench");
+    const workbench = screen.getByLabelText("VoxCanvas workbench");
 
     expect(workbench.children[0]).toHaveAccessibleName("Drawing canvas workspace");
     expect(workbench.children[1]).toHaveAccessibleName("Voice control");
