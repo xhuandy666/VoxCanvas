@@ -1,6 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("App", () => {
   it("renders the voice workbench regions around a wide canvas", () => {
@@ -219,6 +223,93 @@ describe("App", () => {
     expect(screen.getByText("unknown")).toBeInTheDocument();
     expect(screen.getByText("no operation preview")).toBeInTheDocument();
     expect(screen.getByText("等待语音输入")).toBeInTheDocument();
+  });
+
+  it("executes an LLM semantic correction from the planning endpoint", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: "matched",
+          route: "structured_drawing",
+          intent: "create_shape",
+          confidence: 0.91,
+          normalizedTranscript: "画一个圆形",
+          operations: [
+            {
+              type: "create_shape",
+              shape: {
+                id: "llm-circle-1",
+                kind: "circle",
+                x: 410,
+                y: 230,
+                width: 140,
+                height: 140,
+                rotation: 0,
+                style: {
+                  fill: "#2563eb",
+                  stroke: "#1d4ed8",
+                  strokeWidth: 2,
+                },
+              },
+            },
+          ],
+          operationPreview: ["add shape: circle, color: blue"],
+          feedback: ["已将“园”理解为圆形"],
+        }),
+      }),
+    );
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /simulate transcript/i }), {
+      target: {
+        value: "画一个园",
+      },
+    });
+
+    expect(await screen.findByTestId("shape-llm-circle-1")).toBeInTheDocument();
+    expect(screen.getByText("已将“园”理解为圆形")).toBeInTheDocument();
+  });
+
+  it("executes an LLM natural reset expression from the planning endpoint", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: "matched",
+          route: "structured_drawing",
+          intent: "clear_canvas",
+          confidence: 0.87,
+          normalizedTranscript: "清空画布",
+          operations: [{ type: "clear_canvas" }],
+          operationPreview: ["clear canvas"],
+          feedback: ["已将自然表达归一为清空画布"],
+        }),
+      }),
+    );
+    render(<App />);
+    const transcriptInput = screen.getByRole("textbox", {
+      name: /simulate transcript/i,
+    });
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "画一个蓝色圆形",
+      },
+    });
+    expect(await screen.findByLabelText("circle shape")).toBeInTheDocument();
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "回到最初状态",
+      },
+    });
+
+    expect(await screen.findByText("0 shapes / v2")).toBeInTheDocument();
+    expect(screen.queryByLabelText("circle shape")).not.toBeInTheDocument();
+    expect(screen.getByText("已将自然表达归一为清空画布")).toBeInTheDocument();
   });
 
   it("disables unavailable speech while keeping empty history actions disabled", () => {

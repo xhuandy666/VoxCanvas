@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyDrawingOperation, createEmptyCanvasState } from "../drawing/drawingState";
-import { createSemanticPlan } from "./semanticPlanner";
+import { createSemanticPlan, createSemanticPlanAsync } from "./semanticPlanner";
 
 function createCanvasWithCircle() {
   return applyDrawingOperation(createEmptyCanvasState(), {
@@ -116,6 +116,75 @@ describe("createSemanticPlan", () => {
       operations: [],
       operationPreview: [],
       feedback: ["语义规划结果包含非法操作，已阻止执行：目标图形不存在"],
+    });
+  });
+
+  it("uses an async LLM planner to normalize speech-recognition errors", async () => {
+    const plan = await createSemanticPlanAsync("画一个园", {
+      semanticPlanner: async () => ({
+        status: "matched",
+        route: "structured_drawing",
+        intent: "create_shape",
+        confidence: 0.91,
+        normalizedTranscript: "画一个圆形",
+        operations: [
+          {
+            type: "create_shape",
+            shape: {
+              id: "llm-circle-1",
+              kind: "circle",
+              x: 410,
+              y: 230,
+              width: 140,
+              height: 140,
+              rotation: 0,
+              style: {
+                fill: "#2563eb",
+                stroke: "#1d4ed8",
+                strokeWidth: 2,
+              },
+            },
+          },
+        ],
+        operationPreview: ["add shape: circle, color: blue"],
+        feedback: ["已将“园”理解为圆形"],
+      }),
+      semanticPlannerSource: "llm_semantic_planner",
+    });
+
+    expect(plan).toMatchObject({
+      status: "matched",
+      route: "structured_drawing",
+      intent: "create_shape",
+      source: "llm_semantic_planner",
+      normalizedTranscript: "画一个圆形",
+      feedback: ["已将“园”理解为圆形"],
+    });
+    expect(plan.operations).toHaveLength(1);
+  });
+
+  it("uses an async LLM planner to normalize natural reset expressions", async () => {
+    const plan = await createSemanticPlanAsync("回到最初状态", {
+      canvasState: createCanvasWithCircle(),
+      semanticPlanner: async () => ({
+        status: "matched",
+        route: "structured_drawing",
+        intent: "clear_canvas",
+        confidence: 0.87,
+        normalizedTranscript: "清空画布",
+        operations: [{ type: "clear_canvas" }],
+        operationPreview: ["clear canvas"],
+        feedback: ["已将自然表达归一为清空画布"],
+      }),
+      semanticPlannerSource: "llm_semantic_planner",
+    });
+
+    expect(plan).toMatchObject({
+      status: "matched",
+      intent: "clear_canvas",
+      source: "llm_semantic_planner",
+      operations: [{ type: "clear_canvas" }],
+      feedback: ["已将自然表达归一为清空画布"],
     });
   });
 });
