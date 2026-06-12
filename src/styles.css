@@ -12,9 +12,9 @@
   --color-primary: oklch(0.54 0.095 170);
   --color-primary-strong: oklch(0.44 0.105 170);
   --color-primary-soft: oklch(0.93 0.035 170);
-  --color-accent: oklch(0.62 0.145 32);
+  --color-accent: oklch(0.52 0.145 32);
   --color-accent-soft: oklch(0.96 0.034 32);
-  --color-focus: oklch(0.67 0.12 170);
+  --color-focus: oklch(0.44 0.105 170);
   --radius-panel: 12px;
   --radius-control: 10px;
   --shadow-small: 0 4px 8px oklch(0.18 0.026 185 / 0.08);
@@ -52,7 +52,7 @@ button:disabled {
 }
 
 .app-shell {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   background: var(--color-bg);
