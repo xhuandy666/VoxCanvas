@@ -23,7 +23,7 @@ export function VoicePanel({ state }: VoicePanelProps) {
         </div>
       </dl>
 
-      <button className="primary-button" type="button">
+      <button className="primary-button" type="button" disabled>
         Start voice
       </button>
 

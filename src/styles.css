@@ -259,6 +259,8 @@ textarea {
 
 .canvas-stage {
   display: grid;
+  grid-column: 2;
+  grid-row: 1;
   grid-template-rows: auto 1fr;
   min-height: 620px;
   overflow: hidden;
@@ -351,6 +353,8 @@ textarea {
   }
 
   .canvas-stage {
+    grid-column: auto;
+    grid-row: auto;
     order: 1;
   }
 

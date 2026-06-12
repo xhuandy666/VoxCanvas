@@ -21,9 +21,20 @@ describe("App", () => {
   it("keeps future canvas actions disabled in PR-01", () => {
     render(<App />);
 
+    expect(screen.getByRole("button", { name: /start voice/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /undo/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /redo/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /clear/i })).toBeDisabled();
+  });
+
+  it("keeps canvas first in source order for narrow-screen linear navigation", () => {
+    render(<App />);
+
+    const workbench = screen.getByLabelText("VoiceCanvas AI workbench");
+
+    expect(workbench.children[0]).toHaveAccessibleName("Drawing canvas workspace");
+    expect(workbench.children[1]).toHaveAccessibleName("Voice control");
+    expect(workbench.children[2]).toHaveAccessibleName("Command trace");
   });
 
   it("labels the text simulation entry as development-only", () => {
