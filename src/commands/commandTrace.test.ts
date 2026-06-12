@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { applyDrawingOperation, createEmptyCanvasState } from "../drawing/drawingState";
-import { createCommandTraceState } from "./commandTrace";
+import { createSemanticPlan } from "../planning/semanticPlanner";
+import {
+  createCommandTraceState,
+  createCommandTraceStateFromSemanticPlan,
+} from "./commandTrace";
 
 describe("createCommandTraceState", () => {
   it("maps parser output into command trace presentation state", () => {
@@ -45,6 +49,19 @@ describe("createCommandTraceState", () => {
       parsedIntent: "move_shape",
       operationPreview: ["move shape: shape-1, dx: 60, dy: 0"],
       feedbackLog: ["已解析为移动最近对象操作"],
+    });
+  });
+
+  it("maps semantic clarification into command trace state", () => {
+    const plan = createSemanticPlan("把它放大", {
+      canvasState: createEmptyCanvasState(),
+    });
+    const traceState = createCommandTraceStateFromSemanticPlan(plan);
+
+    expect(traceState).toEqual({
+      parsedIntent: "clarify_reference",
+      operationPreview: ["clarification required: missing_reference"],
+      feedbackLog: ["需要澄清：我还没有找到可引用的对象。"],
     });
   });
 });

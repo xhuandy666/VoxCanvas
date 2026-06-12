@@ -3,10 +3,9 @@ import { CanvasStage } from "./components/CanvasStage";
 import { CommandTracePanel } from "./components/CommandTracePanel";
 import { TopBar } from "./components/TopBar";
 import { VoicePanel } from "./components/VoicePanel";
-import { parseCommand } from "./commands/commandParser";
 import {
   createCommandTraceState,
-  createCommandTraceStateFromResult,
+  createCommandTraceStateFromSemanticPlan,
 } from "./commands/commandTrace";
 import { mockAppState } from "./data/mockAppState";
 import { createEmptyCanvasState } from "./drawing/drawingState";
@@ -22,6 +21,7 @@ import {
   createOperationQueueState,
   executeOperationBatch,
 } from "./operations/operationQueue";
+import { createSemanticPlan } from "./planning/semanticPlanner";
 import { useBrowserSpeech } from "./speech/useBrowserSpeech";
 
 export default function App() {
@@ -80,21 +80,28 @@ export default function App() {
     }
 
     setDrawingSession((currentSession) => {
+      if (!browserSpeech.transcript.trim()) {
+        return {
+          ...currentSession,
+          commandTraceState: createCommandTraceState(browserSpeech.transcript),
+        };
+      }
+
       const nextBatchNumber = currentSession.queueState.executedBatchIds.length + 1;
-      const commandResult = parseCommand(browserSpeech.transcript, {
+      const semanticPlan = createSemanticPlan(browserSpeech.transcript, {
         canvasState: currentSession.historyState.present,
         createShapeId: (kind) => `voice-${kind}-${nextBatchNumber}`,
       });
-      const commandTraceState = createCommandTraceStateFromResult(commandResult);
+      const commandTraceState = createCommandTraceStateFromSemanticPlan(semanticPlan);
 
-      if (commandResult.status !== "matched") {
+      if (semanticPlan.status !== "matched") {
         return {
           ...currentSession,
           commandTraceState,
         };
       }
 
-      if (commandResult.intent === "undo") {
+      if (semanticPlan.intent === "undo") {
         return {
           ...currentSession,
           commandTraceState,
@@ -102,7 +109,7 @@ export default function App() {
         };
       }
 
-      if (commandResult.intent === "redo") {
+      if (semanticPlan.intent === "redo") {
         return {
           ...currentSession,
           commandTraceState,
@@ -110,7 +117,7 @@ export default function App() {
         };
       }
 
-      if (commandResult.operations.length === 0) {
+      if (semanticPlan.operations.length === 0) {
         return {
           ...currentSession,
           commandTraceState,
@@ -121,8 +128,8 @@ export default function App() {
         currentSession.historyState.present,
         currentSession.queueState,
         {
-          id: `${commandResult.normalizedTranscript}:${currentSession.queueState.executedBatchIds.length}`,
-          operations: commandResult.operations,
+          id: `${semanticPlan.normalizedTranscript}:${currentSession.queueState.executedBatchIds.length}`,
+          operations: semanticPlan.operations,
         },
       );
 

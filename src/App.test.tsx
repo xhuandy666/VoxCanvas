@@ -183,6 +183,44 @@ describe("App", () => {
     expect(screen.getByText("已解析为删除矩形操作")).toBeInTheDocument();
   });
 
+  it("shows semantic clarification without changing the canvas", () => {
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /simulate transcript/i }), {
+      target: {
+        value: "把它放大",
+      },
+    });
+
+    expect(screen.getByText("clarify_reference")).toBeInTheDocument();
+    expect(screen.getByText("clarification required: missing_reference")).toBeInTheDocument();
+    expect(screen.getByText("需要澄清：我还没有找到可引用的对象。")).toBeInTheDocument();
+    expect(screen.getByText("0 shapes / v0")).toBeInTheDocument();
+    expect(screen.queryByLabelText("circle shape")).not.toBeInTheDocument();
+  });
+
+  it("keeps an empty transcript as a waiting state", () => {
+    render(<App />);
+    const transcriptInput = screen.getByRole("textbox", {
+      name: /simulate transcript/i,
+    });
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "画一个蓝色圆形",
+      },
+    });
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "",
+      },
+    });
+
+    expect(screen.getByText("unknown")).toBeInTheDocument();
+    expect(screen.getByText("no operation preview")).toBeInTheDocument();
+    expect(screen.getByText("等待语音输入")).toBeInTheDocument();
+  });
+
   it("disables unavailable speech while keeping empty history actions disabled", () => {
     render(<App />);
 
