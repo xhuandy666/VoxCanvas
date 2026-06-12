@@ -18,7 +18,21 @@ describe("App", () => {
     expect(screen.getByText("create_shape")).toBeInTheDocument();
   });
 
-  it("keeps future canvas actions disabled in PR-01", () => {
+  it("renders the PR-03 SVG canvas demo shapes", () => {
+    render(<App />);
+
+    expect(
+      screen.getByRole("img", { name: /rendered drawing canvas/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("shape-demo-circle")).toBeInTheDocument();
+    expect(screen.getByTestId("shape-demo-rectangle")).toHaveAttribute(
+      "data-selected",
+      "true",
+    );
+    expect(screen.getByText("语音草图")).toBeInTheDocument();
+  });
+
+  it("keeps future canvas actions disabled until history and command PRs", () => {
     render(<App />);
 
     expect(screen.getByRole("button", { name: /start voice/i })).toBeDisabled();
