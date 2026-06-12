@@ -4,6 +4,7 @@ import type { SpeechStatus } from "../speech/speechProvider";
 type VoicePanelProps = {
   onStart?: () => void | Promise<void>;
   onStop?: () => void;
+  onTranscriptChange?: (transcript: string) => void;
   speechError?: string | null;
   speechStatus?: SpeechStatus;
   state: MockAppState;
@@ -12,6 +13,7 @@ type VoicePanelProps = {
 export function VoicePanel({
   onStart,
   onStop,
+  onTranscriptChange,
   speechError = null,
   speechStatus,
   state,
@@ -74,8 +76,10 @@ export function VoicePanel({
         <textarea
           id="transcript-simulate"
           name="transcript-simulate"
+          onChange={(event) => onTranscriptChange?.(event.currentTarget.value)}
+          readOnly={!onTranscriptChange}
           rows={4}
-          defaultValue={state.transcript}
+          value={state.transcript}
         />
       </div>
     </section>

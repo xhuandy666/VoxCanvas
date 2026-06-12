@@ -67,4 +67,27 @@ describe("VoicePanel", () => {
     expect(screen.getByRole("button", { name: /start voice/i })).toBeEnabled();
     expect(screen.getByRole("button", { name: /stop voice/i })).toBeDisabled();
   });
+
+  it("reports development transcript simulation changes", () => {
+    const onTranscriptChange = vi.fn();
+
+    render(
+      <VoicePanel
+        onStart={vi.fn()}
+        onStop={vi.fn()}
+        onTranscriptChange={onTranscriptChange}
+        speechError={null}
+        speechStatus="idle"
+        state={mockAppState}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("textbox", { name: /simulate transcript/i }), {
+      target: {
+        value: "清空画布",
+      },
+    });
+
+    expect(onTranscriptChange).toHaveBeenCalledWith("清空画布");
+  });
 });
