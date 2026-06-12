@@ -116,6 +116,23 @@ describe("parseCommand", () => {
     expect(result.operationPreview).toEqual(["clear canvas"]);
   });
 
+  it("parses undo and redo commands without drawing operations", () => {
+    const undo = parseCommand("撤销");
+    const redo = parseCommand("重做");
+
+    expect(undo.status).toBe("matched");
+    expect(undo.intent).toBe("undo");
+    expect(undo.operations).toEqual([]);
+    expect(undo.operationPreview).toEqual(["undo last operation"]);
+    expect(undo.feedback).toEqual(["已解析为撤销操作"]);
+
+    expect(redo.status).toBe("matched");
+    expect(redo.intent).toBe("redo");
+    expect(redo.operations).toEqual([]);
+    expect(redo.operationPreview).toEqual(["redo last undone operation"]);
+    expect(redo.feedback).toEqual(["已解析为重做操作"]);
+  });
+
   it("returns a helpful unsupported result for future object-reference commands", () => {
     const result = parseCommand("把它向右移动一点");
 

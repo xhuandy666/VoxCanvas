@@ -7,7 +7,7 @@ import type {
 
 export type CommandParseStatus = "matched" | "unsupported" | "empty";
 
-export type CommandIntent = "create_shape" | "clear_canvas" | "unknown";
+export type CommandIntent = "create_shape" | "clear_canvas" | "undo" | "redo" | "unknown";
 
 export type CommandParseResult = {
   status: CommandParseStatus;
@@ -138,6 +138,28 @@ export function parseCommand(
       operations: [{ type: "clear_canvas" }],
       operationPreview: ["clear canvas"],
       feedback: ["已解析为清空画布操作"],
+      normalizedTranscript,
+    };
+  }
+
+  if (isUndoCommand(normalizedTranscript)) {
+    return {
+      status: "matched",
+      intent: "undo",
+      operations: [],
+      operationPreview: ["undo last operation"],
+      feedback: ["已解析为撤销操作"],
+      normalizedTranscript,
+    };
+  }
+
+  if (isRedoCommand(normalizedTranscript)) {
+    return {
+      status: "matched",
+      intent: "redo",
+      operations: [],
+      operationPreview: ["redo last undone operation"],
+      feedback: ["已解析为重做操作"],
       normalizedTranscript,
     };
   }
@@ -296,6 +318,14 @@ function normalizeTranscript(transcript: string) {
 
 function isClearCanvasCommand(transcript: string) {
   return /清空|清除画布|清除|清屏/.test(transcript);
+}
+
+function isUndoCommand(transcript: string) {
+  return /撤销|后退一步|退一步/.test(transcript);
+}
+
+function isRedoCommand(transcript: string) {
+  return /重做|恢复一步/.test(transcript);
 }
 
 function isObjectReferenceCommand(transcript: string) {
