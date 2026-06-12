@@ -1,10 +1,25 @@
 import type { MockAppState } from "../types/appState";
+import type { SpeechStatus } from "../speech/speechProvider";
 
 type VoicePanelProps = {
+  onStart?: () => void | Promise<void>;
+  onStop?: () => void;
+  speechError?: string | null;
+  speechStatus?: SpeechStatus;
   state: MockAppState;
 };
 
-export function VoicePanel({ state }: VoicePanelProps) {
+export function VoicePanel({
+  onStart,
+  onStop,
+  speechError = null,
+  speechStatus,
+  state,
+}: VoicePanelProps) {
+  const currentSpeechStatus = speechStatus ?? state.speechStatus;
+  const isUnsupported = currentSpeechStatus === "unsupported";
+  const isListening = currentSpeechStatus === "listening";
+
   return (
     <section className="panel voice-panel" aria-labelledby="voice-panel-title">
       <div className="panel-header">
@@ -15,7 +30,7 @@ export function VoicePanel({ state }: VoicePanelProps) {
       <dl className="status-list">
         <div>
           <dt>Mic status</dt>
-          <dd>{state.speechStatus}</dd>
+          <dd>{currentSpeechStatus}</dd>
         </div>
         <div>
           <dt>Language</dt>
@@ -23,9 +38,30 @@ export function VoicePanel({ state }: VoicePanelProps) {
         </div>
       </dl>
 
-      <button className="primary-button" type="button" disabled>
-        Start voice
-      </button>
+      <div className="voice-controls">
+        <button
+          className="primary-button"
+          disabled={isUnsupported || isListening}
+          onClick={onStart}
+          type="button"
+        >
+          Start voice
+        </button>
+        <button
+          className="ghost-button"
+          disabled={!isListening}
+          onClick={onStop}
+          type="button"
+        >
+          Stop voice
+        </button>
+      </div>
+
+      {speechError ? (
+        <p className="speech-error" role="status">
+          {speechError}
+        </p>
+      ) : null}
 
       <div className="transcript-block">
         <span className="field-label">Current transcript</span>

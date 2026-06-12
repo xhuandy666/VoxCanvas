@@ -151,6 +151,11 @@ h1 {
   background: var(--color-primary);
 }
 
+.voice-controls {
+  display: grid;
+  gap: 8px;
+}
+
 .workbench {
   display: grid;
   grid-template-columns: minmax(220px, 240px) minmax(560px, 1fr) minmax(260px, 280px);
@@ -228,6 +233,16 @@ h1 {
 .trace-block p {
   margin: 0;
   line-height: 1.5;
+}
+
+.speech-error {
+  margin: 0;
+  border-radius: var(--radius-control);
+  padding: 10px;
+  color: oklch(0.34 0.12 30);
+  background: var(--color-accent-soft);
+  font-size: 0.86rem;
+  line-height: 1.45;
 }
 
 .dev-only {
