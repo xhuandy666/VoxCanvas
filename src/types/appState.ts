@@ -1,4 +1,6 @@
-export type SpeechStatus = "idle" | "unsupported" | "ready";
+import type { SpeechStatus } from "../speech/speechProvider";
+
+export type { SpeechStatus };
 
 export type MockAppState = {
   speechStatus: SpeechStatus;

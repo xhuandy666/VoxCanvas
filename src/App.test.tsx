@@ -32,7 +32,7 @@ describe("App", () => {
     expect(screen.getByText("语音草图")).toBeInTheDocument();
   });
 
-  it("keeps future canvas actions disabled until history and command PRs", () => {
+  it("disables unavailable speech and keeps future canvas actions disabled", () => {
     render(<App />);
 
     expect(screen.getByRole("button", { name: /start voice/i })).toBeDisabled();
