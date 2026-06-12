@@ -187,6 +187,32 @@ describe("App", () => {
     expect(screen.getByText("已解析为删除矩形操作")).toBeInTheDocument();
   });
 
+  it("executes a structured house template transcript into multiple shapes", async () => {
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /simulate transcript/i }), {
+      target: {
+        value: "画一座房子，有红色屋顶、黄色墙体、两个窗户和一扇门",
+      },
+    });
+
+    expect(await screen.findByTestId("shape-voice-triangle-1-roof")).toHaveAttribute(
+      "data-kind",
+      "triangle",
+    );
+    expect(screen.getByTestId("shape-voice-rectangle-1-wall")).toHaveAttribute(
+      "data-kind",
+      "rectangle",
+    );
+    expect(screen.getByTestId("shape-voice-rectangle-1-door")).toHaveAttribute(
+      "data-kind",
+      "rectangle",
+    );
+    expect(screen.getAllByLabelText("rectangle shape")).toHaveLength(4);
+    expect(screen.getByText("5 shapes / v5")).toBeInTheDocument();
+    expect(screen.getByText("已展开房子草图模板")).toBeInTheDocument();
+  });
+
   it("shows semantic clarification without changing the canvas", () => {
     render(<App />);
 
