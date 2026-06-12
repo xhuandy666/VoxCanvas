@@ -22,7 +22,7 @@
 - 迭代与 PR 计划：`docs/iteration-plan.md`
 - PR 描述模板：`.github/PULL_REQUEST_TEMPLATE.md`
 - 产品上下文：`PRODUCT.md`
-- PR-01 前端骨架设计：`docs/superpowers/specs/2026-06-12-pr01-app-scaffold-design.md`
+- PR-01 前端骨架设计摘要：见 `docs/project-development-document.md`
 - 可运行前端脚手架：Vite + React + TypeScript
 
 ## 技术方向
