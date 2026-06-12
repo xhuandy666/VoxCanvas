@@ -16,7 +16,10 @@ export type SemanticPlanRoute =
   | "ai_image_generation"
   | "image_editing";
 
-export type SemanticPlanSource = "rule_parser" | "mock_semantic_planner";
+export type SemanticPlanSource =
+  | "rule_parser"
+  | "mock_semantic_planner"
+  | "llm_semantic_planner";
 
 export type ClarificationState = {
   reason: string;
@@ -49,10 +52,11 @@ export type SemanticPlannerRequest = {
 
 export type SemanticPlanner = (
   request: SemanticPlannerRequest,
-) => RawSemanticPlanResult;
+) => RawSemanticPlanResult | Promise<RawSemanticPlanResult>;
 
 export type SemanticPlanOptions = ParseCommandOptions & {
   semanticPlanner?: SemanticPlanner;
+  semanticPlannerSource?: SemanticPlanSource;
 };
 
 export function createSemanticPlan(
@@ -80,15 +84,59 @@ export function createSemanticPlan(
   }
 
   const planner = options.semanticPlanner ?? createMockSemanticPlanner;
+  const rawPlan = planner({
+    canvasState,
+    parserResult,
+    transcript,
+  });
+
+  if (isPromiseLike(rawPlan)) {
+    throw new Error("createSemanticPlan received an async planner; use createSemanticPlanAsync instead");
+  }
 
   return createValidatedPlan(
-    planner({
-      canvasState,
-      parserResult,
-      transcript,
-    }),
+    rawPlan,
     canvasState,
-    "mock_semantic_planner",
+    options.semanticPlannerSource ?? "mock_semantic_planner",
+  );
+}
+
+export async function createSemanticPlanAsync(
+  transcript: string,
+  options: SemanticPlanOptions = {},
+): Promise<SemanticPlanResult> {
+  const canvasState = options.canvasState ?? createEmptyCanvasState();
+  const parserResult = parseCommand(transcript, options);
+
+  if (parserResult.status === "matched") {
+    return createValidatedPlan(
+      {
+        status: "matched",
+        route: "structured_drawing",
+        intent: parserResult.intent,
+        confidence: 1,
+        normalizedTranscript: parserResult.normalizedTranscript,
+        operations: parserResult.operations,
+        operationPreview: parserResult.operationPreview,
+        feedback: parserResult.feedback,
+      },
+      canvasState,
+      "rule_parser",
+    );
+  }
+
+  const planner = options.semanticPlanner ?? createMockSemanticPlanner;
+  const rawPlan = await planner({
+    canvasState,
+    parserResult,
+    transcript,
+  });
+
+  return createValidatedPlan(
+    rawPlan,
+    canvasState,
+    options.semanticPlannerSource ??
+      (options.semanticPlanner ? "llm_semantic_planner" : "mock_semantic_planner"),
   );
 }
 
@@ -203,4 +251,12 @@ function createBlockedPlan(
 
 function isReferenceCommand(transcript: string) {
   return /(它|这个|那个|刚才)/.test(transcript);
+}
+
+function isPromiseLike(value: unknown): value is Promise<RawSemanticPlanResult> {
+  return isRecord(value) && typeof value.then === "function";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

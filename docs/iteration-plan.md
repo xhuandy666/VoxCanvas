@@ -20,7 +20,7 @@
 | PR-07 | `feat/history-manager` | 支持撤销、重做、清空 | 单元测试和手动测试 |
 | PR-08 | `feat/object-reference` | 支持“它”“刚才的圆”等对象引用 | 手动测试多对象场景 |
 | PR-09 | `feat/semantic-planner-foundation` | 建立语义规划结果模型、澄清状态和操作校验基础，不接真实 LLM | 单元测试覆盖 matched、unsupported、needs_clarification 和非法操作拦截 |
-| PR-10 | `feat/llm-semantic-planner` | 接入 LLM Semantic Planner，处理“园/圆”“回到最初状态”等语音误差和自然表达归一 | 固定语义容错样例测试，手动测试真实语音误识别场景 |
+| PR-10 | `feat/llm-semantic-planner` | 接入 OpenAI Responses API 驱动的 LLM Semantic Planner，处理“园/圆”“回到最初状态”等语音误差和自然表达归一 | 固定语义容错样例测试，手动测试真实语音误识别场景 |
 | PR-11 | `feat/drawing-operation-schema-expansion` | 扩展 `DrawingOperation` schema 和渲染能力，为复合对象提供更丰富图形原语或模板结构 | 单元测试覆盖新增 operation，手动检查新增图形渲染 |
 | PR-12 | `feat/structured-object-planner` | 支持“画一个房子草图”“画一个流程图”等结构化复合对象拆解与模板展开 | 固定结构化样例测试，检查每一步仍生成合法操作 |
 | PR-13 | `feat/generated-image-layer` | 建立 AI 生图图片图层模型、渲染占位、历史接入和生成状态 | 单元测试覆盖图片图层状态，手动检查图片图层显示和撤销 |
@@ -37,6 +37,7 @@
 - 复杂 AI 能力放在基础闭环之后，避免主链路不稳定。
 - 语义理解和绘图能力分开迭代：先用 LLM 解决“用户想表达什么”，再扩展 `DrawingOperation` 解决“系统能画出什么”。
 - LLM 不能直接修改画布、DOM 或 SVG；它只能输出结构化规划结果，最终必须通过 schema 和操作校验。
+- OpenAI API key 只能通过后端或本地代理读取；前端只能调用同源语义规划端点。
 - 不针对单个测试用例硬编码特殊逻辑；语音误识别、同义表达和复合对象都应通过可泛化的规划层或 schema 扩展解决。
 - 复杂视觉对象和风格化画面可以走 AI 生图路线，但图片生成必须作为受管理的图层进入历史，而不是绕开画布状态。
 - 当前阶段暂不引入 LangGraph；只有当语义规划、生图、图片编辑、重试、澄清和恢复形成多节点长流程时，才作为独立架构 PR 评估。

@@ -6,23 +6,37 @@ import { VoicePanel } from "./components/VoicePanel";
 import {
   createCommandTraceState,
   createCommandTraceStateFromSemanticPlan,
+  type CommandTraceState,
 } from "./commands/commandTrace";
 import { mockAppState } from "./data/mockAppState";
-import { createEmptyCanvasState } from "./drawing/drawingState";
+import { createEmptyCanvasState, type CanvasState } from "./drawing/drawingState";
 import {
   canRedo,
   canUndo,
   commitHistoryState,
   createHistoryState,
+  type HistoryState,
   redoHistoryState,
   undoHistoryState,
 } from "./history/historyManager";
 import {
   createOperationQueueState,
   executeOperationBatch,
+  type OperationQueueState,
 } from "./operations/operationQueue";
-import { createSemanticPlan } from "./planning/semanticPlanner";
+import {
+  createSemanticPlan,
+  createSemanticPlanAsync,
+  type SemanticPlanResult,
+} from "./planning/semanticPlanner";
+import { createRemoteSemanticPlanner } from "./planning/semanticPlannerClient";
 import { useBrowserSpeech } from "./speech/useBrowserSpeech";
+
+type DrawingSession = {
+  commandTraceState: CommandTraceState;
+  historyState: HistoryState<CanvasState>;
+  queueState: OperationQueueState;
+};
 
 export default function App() {
   const browserSpeech = useBrowserSpeech({
@@ -79,73 +93,49 @@ export default function App() {
       return;
     }
 
+    const transcript = browserSpeech.transcript;
+    let cancelled = false;
+
     setDrawingSession((currentSession) => {
-      if (!browserSpeech.transcript.trim()) {
+      if (!transcript.trim()) {
         return {
           ...currentSession,
-          commandTraceState: createCommandTraceState(browserSpeech.transcript),
+          commandTraceState: createCommandTraceState(transcript),
         };
       }
 
       const nextBatchNumber = currentSession.queueState.executedBatchIds.length + 1;
-      const semanticPlan = createSemanticPlan(browserSpeech.transcript, {
+      const semanticPlan = createSemanticPlan(transcript, {
         canvasState: currentSession.historyState.present,
         createShapeId: (kind) => `voice-${kind}-${nextBatchNumber}`,
       });
-      const commandTraceState = createCommandTraceStateFromSemanticPlan(semanticPlan);
 
-      if (semanticPlan.status !== "matched") {
-        return {
-          ...currentSession,
-          commandTraceState,
-        };
+      if (
+        semanticPlan.source === "mock_semantic_planner" &&
+        semanticPlan.status === "unsupported"
+      ) {
+        void createSemanticPlanAsync(transcript, {
+          canvasState: currentSession.historyState.present,
+          createShapeId: (kind) => `voice-${kind}-${nextBatchNumber}`,
+          semanticPlanner: createRemoteSemanticPlanner(),
+          semanticPlannerSource: "llm_semantic_planner",
+        }).then((remoteSemanticPlan) => {
+          if (cancelled) {
+            return;
+          }
+
+          setDrawingSession((latestSession) =>
+            applySemanticPlanToSession(latestSession, remoteSemanticPlan),
+          );
+        });
       }
 
-      if (semanticPlan.intent === "undo") {
-        return {
-          ...currentSession,
-          commandTraceState,
-          historyState: undoHistoryState(currentSession.historyState),
-        };
-      }
-
-      if (semanticPlan.intent === "redo") {
-        return {
-          ...currentSession,
-          commandTraceState,
-          historyState: redoHistoryState(currentSession.historyState),
-        };
-      }
-
-      if (semanticPlan.operations.length === 0) {
-        return {
-          ...currentSession,
-          commandTraceState,
-        };
-      }
-
-      const result = executeOperationBatch(
-        currentSession.historyState.present,
-        currentSession.queueState,
-        {
-          id: `${semanticPlan.normalizedTranscript}:${currentSession.queueState.executedBatchIds.length}`,
-          operations: semanticPlan.operations,
-        },
-      );
-
-      if (!result.executed) {
-        return {
-          ...currentSession,
-          commandTraceState,
-        };
-      }
-
-      return {
-        commandTraceState,
-        historyState: commitHistoryState(currentSession.historyState, result.canvasState),
-        queueState: result.queueState,
-      };
+      return applySemanticPlanToSession(currentSession, semanticPlan);
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [browserSpeech.transcript]);
 
   const canvasState = drawingSession.historyState.present;
@@ -181,4 +171,63 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+function applySemanticPlanToSession(
+  currentSession: DrawingSession,
+  semanticPlan: SemanticPlanResult,
+): DrawingSession {
+  const commandTraceState = createCommandTraceStateFromSemanticPlan(semanticPlan);
+
+  if (semanticPlan.status !== "matched") {
+    return {
+      ...currentSession,
+      commandTraceState,
+    };
+  }
+
+  if (semanticPlan.intent === "undo") {
+    return {
+      ...currentSession,
+      commandTraceState,
+      historyState: undoHistoryState(currentSession.historyState),
+    };
+  }
+
+  if (semanticPlan.intent === "redo") {
+    return {
+      ...currentSession,
+      commandTraceState,
+      historyState: redoHistoryState(currentSession.historyState),
+    };
+  }
+
+  if (semanticPlan.operations.length === 0) {
+    return {
+      ...currentSession,
+      commandTraceState,
+    };
+  }
+
+  const result = executeOperationBatch(
+    currentSession.historyState.present,
+    currentSession.queueState,
+    {
+      id: `${semanticPlan.normalizedTranscript}:${currentSession.queueState.executedBatchIds.length}`,
+      operations: semanticPlan.operations,
+    },
+  );
+
+  if (!result.executed) {
+    return {
+      ...currentSession,
+      commandTraceState,
+    };
+  }
+
+  return {
+    commandTraceState,
+    historyState: commitHistoryState(currentSession.historyState, result.canvasState),
+    queueState: result.queueState,
+  };
 }
