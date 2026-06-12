@@ -141,6 +141,48 @@ describe("App", () => {
     expect(screen.getByText("已解析为重做操作")).toBeInTheDocument();
   });
 
+  it("executes object-reference move and delete commands", async () => {
+    render(<App />);
+    const transcriptInput = screen.getByRole("textbox", {
+      name: /simulate transcript/i,
+    });
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "在左上角画一个红色矩形",
+      },
+    });
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "画一个蓝色圆形",
+      },
+    });
+    expect(await screen.findByTestId("shape-voice-circle-2")).toBeInTheDocument();
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "把它向右移动一点",
+      },
+    });
+
+    const movedCircle = screen
+      .getByTestId("shape-voice-circle-2")
+      .querySelector("circle");
+
+    expect(movedCircle).toHaveAttribute("cx", "540");
+    expect(screen.getByText("已解析为移动最近对象操作")).toBeInTheDocument();
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "删除刚才的矩形",
+      },
+    });
+
+    expect(screen.queryByTestId("shape-voice-rectangle-1")).not.toBeInTheDocument();
+    expect(screen.getByTestId("shape-voice-circle-2")).toBeInTheDocument();
+    expect(screen.getByText("已解析为删除矩形操作")).toBeInTheDocument();
+  });
+
   it("disables unavailable speech while keeping empty history actions disabled", () => {
     render(<App />);
 
