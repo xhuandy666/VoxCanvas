@@ -70,7 +70,78 @@ describe("App", () => {
     expect(screen.getByText("2 shapes / v2")).toBeInTheDocument();
   });
 
-  it("disables unavailable speech and keeps future canvas actions disabled", () => {
+  it("enables undo, redo, and clear based on canvas history", async () => {
+    render(<App />);
+    const transcriptInput = screen.getByRole("textbox", {
+      name: /simulate transcript/i,
+    });
+
+    expect(screen.getByRole("button", { name: /undo/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /redo/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /clear/i })).toBeDisabled();
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "在左上角画一个红色矩形",
+      },
+    });
+
+    expect(await screen.findByLabelText("rectangle shape")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /undo/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /redo/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /clear/i })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /undo/i }));
+
+    expect(screen.queryByLabelText("rectangle shape")).not.toBeInTheDocument();
+    expect(screen.getByText("0 shapes / v0")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /redo/i })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /redo/i }));
+
+    expect(await screen.findByLabelText("rectangle shape")).toBeInTheDocument();
+    expect(screen.getByText("1 shapes / v1")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /clear/i }));
+
+    expect(screen.queryByLabelText("rectangle shape")).not.toBeInTheDocument();
+    expect(screen.getByText("0 shapes / v2")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /undo/i })).toBeEnabled();
+  });
+
+  it("executes undo and redo simulated transcripts through history", async () => {
+    render(<App />);
+    const transcriptInput = screen.getByRole("textbox", {
+      name: /simulate transcript/i,
+    });
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "在左上角画一个红色矩形",
+      },
+    });
+    expect(await screen.findByLabelText("rectangle shape")).toBeInTheDocument();
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "撤销",
+      },
+    });
+
+    expect(screen.queryByLabelText("rectangle shape")).not.toBeInTheDocument();
+    expect(screen.getByText("已解析为撤销操作")).toBeInTheDocument();
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "重做",
+      },
+    });
+
+    expect(await screen.findByLabelText("rectangle shape")).toBeInTheDocument();
+    expect(screen.getByText("已解析为重做操作")).toBeInTheDocument();
+  });
+
+  it("disables unavailable speech while keeping empty history actions disabled", () => {
     render(<App />);
 
     expect(screen.getByRole("button", { name: /start voice/i })).toBeDisabled();

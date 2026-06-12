@@ -15,7 +15,7 @@
 
 ## 当前阶段
 
-当前处于 PR-06 操作队列执行阶段，已建立：
+当前处于 PR-07 历史管理阶段，已建立：
 
 - 项目开发文档：`docs/project-development-document.md`
 - 开发纪律与提交规范：`docs/development-discipline.md`
@@ -29,6 +29,7 @@
 - 浏览器语音识别抽象与实现：`src/speech/browserSpeechProvider.ts`
 - 基础本地指令解析器：`src/commands/commandParser.ts`
 - 操作队列执行器：`src/operations/operationQueue.ts`
+- 历史状态管理器：`src/history/historyManager.ts`
 
 ## 技术方向
 
@@ -38,7 +39,7 @@ MVP 优先采用浏览器语音识别能力完成端到端闭环：
 - `SpeechProvider`：统一语音识别接口。
 - `LocalSpeechProvider`：仅预留接口，后续有时间可接入 whisper.cpp、faster-whisper 或 Vosk。
 
-绘图能力采用 Web 前端实现，当前阶段使用 SVG 渲染圆、矩形、线条、箭头和文本，并通过统一操作队列把基础指令解析结果应用到画布状态。
+绘图能力采用 Web 前端实现，当前阶段使用 SVG 渲染圆、矩形、线条、箭头和文本，并通过统一操作队列把基础指令解析结果应用到画布状态。画布状态接入历史管理后，基础创建、清空、撤销和重做已经形成可验证闭环。
 
 ## 本地运行
 
@@ -53,7 +54,7 @@ pnpm test:run
 pnpm build
 ```
 
-当前 PR-06 已提供画布状态模型、SVG 渲染能力、`SpeechProvider` 抽象、浏览器语音识别入口、基础本地指令解析能力和操作队列执行能力。应用可以把 transcript 解析为 `DrawingOperation[]`，并通过操作队列更新真实画布状态；撤销、重做、对象引用和复杂指令规划将在后续 PR 接入。
+当前 PR-07 已提供画布状态模型、SVG 渲染能力、`SpeechProvider` 抽象、浏览器语音识别入口、基础本地指令解析能力、操作队列执行能力和历史管理能力。应用可以把 transcript 解析为 `DrawingOperation[]` 并通过操作队列更新真实画布状态，也可以通过顶部按钮或语音文本“撤销”“重做”恢复历史画布状态；对象引用和复杂指令规划将在后续 PR 接入。
 
 ## 提交材料目标
 
@@ -65,4 +66,4 @@ pnpm build
 
 ## 依赖声明
 
-实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。PR-01 引入 Vite、React、TypeScript、Vitest 与 Testing Library，用于前端应用脚手架、类型检查和基础组件测试。同时引入 `@vitejs/plugin-react`、`jsdom`、`@testing-library/jest-dom` 与 React 类型包，用于 React 编译支持、测试 DOM 环境、测试断言扩展和 TypeScript 类型检查。PR-02、PR-03、PR-04、PR-05 与 PR-06 未新增第三方依赖。当前未引入语音识别模型、图片生成模型、LLM SDK 或后端服务依赖。
+实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。PR-01 引入 Vite、React、TypeScript、Vitest 与 Testing Library，用于前端应用脚手架、类型检查和基础组件测试。同时引入 `@vitejs/plugin-react`、`jsdom`、`@testing-library/jest-dom` 与 React 类型包，用于 React 编译支持、测试 DOM 环境、测试断言扩展和 TypeScript 类型检查。PR-02、PR-03、PR-04、PR-05、PR-06 与 PR-07 未新增第三方依赖。当前未引入语音识别模型、图片生成模型、LLM SDK 或后端服务依赖。

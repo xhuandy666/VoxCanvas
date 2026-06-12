@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CanvasStage } from "./components/CanvasStage";
 import { CommandTracePanel } from "./components/CommandTracePanel";
 import { TopBar } from "./components/TopBar";
@@ -7,6 +7,14 @@ import { parseCommand } from "./commands/commandParser";
 import { createCommandTraceState } from "./commands/commandTrace";
 import { mockAppState } from "./data/mockAppState";
 import { createEmptyCanvasState } from "./drawing/drawingState";
+import {
+  canRedo,
+  canUndo,
+  commitHistoryState,
+  createHistoryState,
+  redoHistoryState,
+  undoHistoryState,
+} from "./history/historyManager";
 import {
   createOperationQueueState,
   executeOperationBatch,
@@ -20,9 +28,45 @@ export default function App() {
   });
   const hasSkippedInitialTranscript = useRef(false);
   const [drawingSession, setDrawingSession] = useState(() => ({
-    canvasState: createEmptyCanvasState(),
+    historyState: createHistoryState(createEmptyCanvasState()),
     queueState: createOperationQueueState(),
   }));
+
+  const handleUndo = useCallback(() => {
+    setDrawingSession((currentSession) => ({
+      ...currentSession,
+      historyState: undoHistoryState(currentSession.historyState),
+    }));
+  }, []);
+
+  const handleRedo = useCallback(() => {
+    setDrawingSession((currentSession) => ({
+      ...currentSession,
+      historyState: redoHistoryState(currentSession.historyState),
+    }));
+  }, []);
+
+  const handleClear = useCallback(() => {
+    setDrawingSession((currentSession) => {
+      const result = executeOperationBatch(
+        currentSession.historyState.present,
+        currentSession.queueState,
+        {
+          id: `toolbar-clear:${currentSession.queueState.executedBatchIds.length}`,
+          operations: [{ type: "clear_canvas" }],
+        },
+      );
+
+      if (!result.executed) {
+        return currentSession;
+      }
+
+      return {
+        historyState: commitHistoryState(currentSession.historyState, result.canvasState),
+        queueState: result.queueState,
+      };
+    });
+  }, []);
 
   useEffect(() => {
     if (!hasSkippedInitialTranscript.current) {
@@ -31,20 +75,38 @@ export default function App() {
     }
 
     setDrawingSession((currentSession) => {
-      const nextShapeNumber = currentSession.queueState.executedBatchIds.length + 1;
+      const nextBatchNumber = currentSession.queueState.executedBatchIds.length + 1;
       const commandResult = parseCommand(browserSpeech.transcript, {
-        createShapeId: (kind) => `voice-${kind}-${nextShapeNumber}`,
+        createShapeId: (kind) => `voice-${kind}-${nextBatchNumber}`,
       });
 
-      if (commandResult.status !== "matched" || commandResult.operations.length === 0) {
+      if (commandResult.status !== "matched") {
+        return currentSession;
+      }
+
+      if (commandResult.intent === "undo") {
+        return {
+          ...currentSession,
+          historyState: undoHistoryState(currentSession.historyState),
+        };
+      }
+
+      if (commandResult.intent === "redo") {
+        return {
+          ...currentSession,
+          historyState: redoHistoryState(currentSession.historyState),
+        };
+      }
+
+      if (commandResult.operations.length === 0) {
         return currentSession;
       }
 
       const result = executeOperationBatch(
-        currentSession.canvasState,
+        currentSession.historyState.present,
         currentSession.queueState,
         {
-          id: commandResult.normalizedTranscript,
+          id: `${commandResult.normalizedTranscript}:${currentSession.queueState.executedBatchIds.length}`,
           operations: commandResult.operations,
         },
       );
@@ -54,11 +116,13 @@ export default function App() {
       }
 
       return {
-        canvasState: result.canvasState,
+        historyState: commitHistoryState(currentSession.historyState, result.canvasState),
         queueState: result.queueState,
       };
     });
   }, [browserSpeech.transcript]);
+
+  const canvasState = drawingSession.historyState.present;
 
   const appState = {
     ...mockAppState,
@@ -69,9 +133,16 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <TopBar />
+      <TopBar
+        canClear={canvasState.shapes.length > 0}
+        canRedo={canRedo(drawingSession.historyState)}
+        canUndo={canUndo(drawingSession.historyState)}
+        onClear={handleClear}
+        onRedo={handleRedo}
+        onUndo={handleUndo}
+      />
       <div className="workbench" aria-label="VoxCanvas workbench">
-        <CanvasStage state={drawingSession.canvasState} />
+        <CanvasStage state={canvasState} />
         <VoicePanel
           onStart={browserSpeech.start}
           onStop={browserSpeech.stop}

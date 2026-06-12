@@ -1,4 +1,20 @@
-export function TopBar() {
+type TopBarProps = {
+  canClear?: boolean;
+  canRedo?: boolean;
+  canUndo?: boolean;
+  onClear?: () => void;
+  onRedo?: () => void;
+  onUndo?: () => void;
+};
+
+export function TopBar({
+  canClear = false,
+  canRedo = false,
+  canUndo = false,
+  onClear,
+  onRedo,
+  onUndo,
+}: TopBarProps) {
   return (
     <header className="top-bar" aria-label="VoxCanvas application header">
       <div className="brand-lockup">
@@ -11,15 +27,30 @@ export function TopBar() {
         </div>
       </div>
 
-      <div className="top-actions" aria-label="Future canvas actions">
-        <span className="status-pill">Prototype scaffold</span>
-        <button className="ghost-button" type="button" disabled>
+      <div className="top-actions" aria-label="Canvas history actions">
+        <span className="status-pill">History ready</span>
+        <button
+          className="ghost-button"
+          disabled={!canUndo}
+          onClick={onUndo}
+          type="button"
+        >
           Undo
         </button>
-        <button className="ghost-button" type="button" disabled>
+        <button
+          className="ghost-button"
+          disabled={!canRedo}
+          onClick={onRedo}
+          type="button"
+        >
           Redo
         </button>
-        <button className="ghost-button" type="button" disabled>
+        <button
+          className="ghost-button"
+          disabled={!canClear}
+          onClick={onClear}
+          type="button"
+        >
           Clear
         </button>
       </div>
