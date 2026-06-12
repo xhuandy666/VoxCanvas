@@ -2,6 +2,7 @@ import { CanvasStage } from "./components/CanvasStage";
 import { CommandTracePanel } from "./components/CommandTracePanel";
 import { TopBar } from "./components/TopBar";
 import { VoicePanel } from "./components/VoicePanel";
+import { createCommandTraceState } from "./commands/commandTrace";
 import { demoCanvasState } from "./data/demoCanvasState";
 import { mockAppState } from "./data/mockAppState";
 import { useBrowserSpeech } from "./speech/useBrowserSpeech";
@@ -13,6 +14,7 @@ export default function App() {
   });
   const appState = {
     ...mockAppState,
+    ...createCommandTraceState(browserSpeech.transcript),
     speechStatus: browserSpeech.speechStatus,
     transcript: browserSpeech.transcript,
   };
