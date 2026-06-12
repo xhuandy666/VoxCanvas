@@ -15,7 +15,7 @@
 
 ## 当前阶段
 
-当前处于 PR-01 应用脚手架阶段，已建立：
+当前处于 PR-02 画布状态模型阶段，已建立：
 
 - 项目开发文档：`docs/project-development-document.md`
 - 开发纪律与提交规范：`docs/development-discipline.md`
@@ -24,6 +24,7 @@
 - 产品上下文：`PRODUCT.md`
 - PR-01 前端骨架设计摘要：见 `docs/project-development-document.md`
 - 可运行前端脚手架：Vite + React + TypeScript
+- 画布状态、图形模型与统一绘图操作 schema：`src/drawing/drawingState.ts`
 
 ## 技术方向
 
@@ -48,7 +49,7 @@ pnpm test:run
 pnpm build
 ```
 
-当前 PR-01 只提供静态应用骨架，不会申请麦克风权限，也不会执行真实绘图。
+当前 PR-02 已提供画布状态模型和纯函数状态更新能力，但仍不会申请麦克风权限，也不会渲染真实绘图；画布渲染将在后续 PR 接入。
 
 ## 提交材料目标
 
