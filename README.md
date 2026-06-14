@@ -101,6 +101,8 @@ Demo 视频展示了 VoxCanvas 的语音绘图主链路，包括基础图形创�
 
 演示视频：[docs/assets/voxcanvas.mp4](docs/assets/voxcanvas.mp4)
 
+bilibili：https://www.bilibili.com/video/BV1TbJK67EAk/?vd_source=f7977e25303b56b2ffe4eefcaa405927
+
 ## 提交材料目标
 
 - 公开 GitHub 或 Gitee 仓库。
