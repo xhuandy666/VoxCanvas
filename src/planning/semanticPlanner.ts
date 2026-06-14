@@ -171,6 +171,37 @@ function createMockSemanticPlanner(
     };
   }
 
+  if (isImageEditingCommand(normalizedTranscript)) {
+    if (!hasEditableImageLayer(request.canvasState)) {
+      return {
+        status: "needs_clarification",
+        route: "clarification",
+        intent: "clarify_reference",
+        confidence: 0.45,
+        normalizedTranscript,
+        operations: [],
+        operationPreview: [],
+        feedback: ["需要澄清：我还没有找到可修改的生成图片。"],
+        clarification: {
+          reason: "missing_image_layer",
+          question: "你想先生成一张图片，还是重新描述要修改的图片？",
+          suggestions: ["先画一只蓝色的鸟", "重新描述要修改的图片"],
+        },
+      };
+    }
+
+    return {
+      status: "matched",
+      route: "image_editing",
+      intent: "create_image_layer",
+      confidence: 0.76,
+      normalizedTranscript,
+      operations: [],
+      operationPreview: [`route to image editing: ${normalizedTranscript}`],
+      feedback: ["已识别为语音改图任务，将基于当前图片生成新图层"],
+    };
+  }
+
   if (isReferenceCommand(normalizedTranscript)) {
     return {
       status: "needs_clarification",
@@ -241,6 +272,18 @@ function createValidatedPlan(
     };
   }
 
+  if (plan.route === "image_editing") {
+    if (plan.operations.length > 0) {
+      return createBlockedPlan(plan, source, ["图片编辑路线不允许直接携带绘图操作"]);
+    }
+
+    return {
+      ...plan,
+      source,
+      operations: [],
+    };
+  }
+
   if (plan.route !== "structured_drawing") {
     return createBlockedPlan(plan, source, ["当前语义路线尚未接入可执行流程"]);
   }
@@ -286,12 +329,26 @@ function isReferenceCommand(transcript: string) {
   return /(它|这个|那个|刚才)/.test(transcript);
 }
 
+function isImageEditingCommand(transcript: string) {
+  return (
+    /(这只|这张|这个|它|当前|刚才|上一张)/.test(transcript) &&
+    /(换成|改成|变成|调整成|改为|换一种|换个)/.test(transcript) &&
+    /(鸟|图|图片|照片|风格|颜色|红色|蓝色|绿色|黄色|水彩|油画|夜晚|背景)/.test(
+      transcript,
+    )
+  );
+}
+
 function isImageGenerationCommand(transcript: string) {
   return (
     /(鸟|猫|狗|人物|人像|森林|城市|场景|风景|插画|海报|水彩|油画|赛博朋克|写实|照片)/.test(
       transcript,
     ) && /画|生成|创作|做一张|来一张/.test(transcript)
   );
+}
+
+function hasEditableImageLayer(canvasState: CanvasState) {
+  return canvasState.imageLayers.length > 0;
 }
 
 function isPromiseLike(value: unknown): value is Promise<RawSemanticPlanResult> {

@@ -237,6 +237,45 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
+  it("routes voice image edits into a new pending image layer and keeps undo history", async () => {
+    render(<App />);
+    const transcriptInput = screen.getByRole("textbox", {
+      name: /simulate transcript/i,
+    });
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "画一只蓝色的鸟",
+      },
+    });
+    expect(await screen.findByTestId("image-layer-voice-image-1")).toHaveAttribute(
+      "data-status",
+      "pending",
+    );
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "把这只鸟换成红色",
+      },
+    });
+
+    expect(await screen.findByTestId("image-layer-voice-image-2")).toHaveAttribute(
+      "data-status",
+      "pending",
+    );
+    expect(screen.getByText("0 shapes / 2 image layers / v2")).toBeInTheDocument();
+    expect(screen.getByText("queue image edit: voice-image-1 -> voice-image-2")).toBeInTheDocument();
+    expect(
+      screen.getByText("已进入 AI 改图队列，基于上一张图片生成新图层"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /undo/i }));
+
+    expect(screen.queryByTestId("image-layer-voice-image-2")).not.toBeInTheDocument();
+    expect(screen.getByTestId("image-layer-voice-image-1")).toBeInTheDocument();
+    expect(screen.getByText("0 shapes / 1 image layers / v1")).toBeInTheDocument();
+  });
+
   it("shows semantic clarification without changing the canvas", () => {
     render(<App />);
 

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyCanvasState } from "../drawing/drawingState";
+import {
+  applyDrawingOperation,
+  createEmptyCanvasState,
+  type CanvasState,
+} from "../drawing/drawingState";
 import { routeSemanticPlan } from "./intentRouter";
 import type { SemanticPlanResult } from "./semanticPlanner";
 
@@ -14,6 +18,37 @@ const imageGenerationPlan: SemanticPlanResult = {
   operationPreview: ["route to AI image generation: 画一只蓝色的鸟"],
   feedback: ["已识别为复杂视觉任务，将通过 AI 生图路径处理"],
 };
+
+const imageEditingPlan: SemanticPlanResult = {
+  status: "matched",
+  route: "image_editing",
+  intent: "create_image_layer",
+  source: "mock_semantic_planner",
+  confidence: 0.76,
+  normalizedTranscript: "把这只鸟换成红色",
+  operations: [],
+  operationPreview: ["route to image editing: 把这只鸟换成红色"],
+  feedback: ["已识别为语音改图任务，将基于当前图片生成新图层"],
+};
+
+function createCanvasWithImageLayer(): CanvasState {
+  return applyDrawingOperation(createEmptyCanvasState(), {
+    type: "create_image_layer",
+    layer: {
+      id: "image-layer-bird-1",
+      prompt: "画一只蓝色的鸟",
+      status: "pending",
+      x: 170,
+      y: 90,
+      width: 620,
+      height: 420,
+      opacity: 1,
+      model: "mock-image-generation",
+      createdAt: "2026-06-14T00:00:00.000Z",
+      updatedAt: "2026-06-14T00:00:00.000Z",
+    },
+  });
+}
 
 describe("routeSemanticPlan", () => {
   it("queues AI image generation as a managed pending image layer", () => {
@@ -73,10 +108,62 @@ describe("routeSemanticPlan", () => {
     expect(result.feedback).toEqual(["已解析为清空画布操作"]);
   });
 
+  it("queues voice image editing as a new managed pending image layer", () => {
+    const result = routeSemanticPlan(imageEditingPlan, {
+      canvasState: createCanvasWithImageLayer(),
+      createImageLayerId: () => "image-layer-bird-edit-1",
+      now: () => "2026-06-14T00:02:00.000Z",
+    });
+
+    expect(result.operationPreview).toEqual([
+      "queue image edit: image-layer-bird-1 -> image-layer-bird-edit-1",
+    ]);
+    expect(result.feedback).toEqual([
+      "已识别为语音改图任务，将基于当前图片生成新图层",
+      "已进入 AI 改图队列，基于上一张图片生成新图层",
+    ]);
+    expect(result.operations).toEqual([
+      {
+        type: "create_image_layer",
+        layer: {
+          id: "image-layer-bird-edit-1",
+          prompt: "画一只蓝色的鸟\n修改指令：把这只鸟换成红色",
+          status: "pending",
+          x: 170,
+          y: 90,
+          width: 620,
+          height: 420,
+          opacity: 1,
+          model: "mock-image-editing",
+          revisedPrompt: "把这只鸟换成红色",
+          createdAt: "2026-06-14T00:02:00.000Z",
+          updatedAt: "2026-06-14T00:02:00.000Z",
+        },
+      },
+    ]);
+  });
+
+  it("blocks voice image editing when no source image layer exists", () => {
+    const result = routeSemanticPlan(imageEditingPlan, {
+      canvasState: createEmptyCanvasState(),
+    });
+
+    expect(result.operations).toEqual([]);
+    expect(result.operationPreview).toEqual([]);
+    expect(result.feedback).toEqual([
+      "语音改图需要先有一张可修改的生成图片",
+    ]);
+  });
+
   it("blocks invalid image generation service operations", () => {
     const result = routeSemanticPlan(imageGenerationPlan, {
       canvasState: createEmptyCanvasState(),
       imageGenerationService: {
+        queueImageEdit: () => ({
+          feedback: ["unused edit service"],
+          operationPreview: ["unused edit operation"],
+          operations: [],
+        }),
         queueTextToImage: () => ({
           feedback: ["bad service"],
           operationPreview: ["bad operation"],

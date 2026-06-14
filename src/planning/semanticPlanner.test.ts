@@ -22,6 +22,25 @@ function createCanvasWithCircle() {
   });
 }
 
+function createCanvasWithGeneratedImageLayer() {
+  return applyDrawingOperation(createEmptyCanvasState(), {
+    type: "create_image_layer",
+    layer: {
+      id: "image-layer-bird-1",
+      prompt: "画一只蓝色的鸟",
+      status: "pending",
+      x: 170,
+      y: 90,
+      width: 620,
+      height: 420,
+      opacity: 1,
+      model: "mock-image-generation",
+      createdAt: "2026-06-14T00:00:00.000Z",
+      updatedAt: "2026-06-14T00:00:00.000Z",
+    },
+  });
+}
+
 describe("createSemanticPlan", () => {
   it("returns a matched structured drawing plan for commands handled by rules", () => {
     const plan = createSemanticPlan("画一个蓝色圆形", {
@@ -63,6 +82,43 @@ describe("createSemanticPlan", () => {
       operations: [],
       operationPreview: ["route to AI image generation: 画一只蓝色的鸟"],
       feedback: ["已识别为复杂视觉任务，将通过 AI 生图路径处理"],
+    });
+  });
+
+  it("routes generated image edit requests when a source image layer exists", () => {
+    const plan = createSemanticPlan("把这只鸟换成红色", {
+      canvasState: createCanvasWithGeneratedImageLayer(),
+    });
+
+    expect(plan).toMatchObject({
+      status: "matched",
+      route: "image_editing",
+      intent: "create_image_layer",
+      source: "mock_semantic_planner",
+      operations: [],
+      operationPreview: ["route to image editing: 把这只鸟换成红色"],
+      feedback: ["已识别为语音改图任务，将基于当前图片生成新图层"],
+    });
+  });
+
+  it("asks for clarification when an image edit request has no source image layer", () => {
+    const plan = createSemanticPlan("把这只鸟换成红色", {
+      canvasState: createEmptyCanvasState(),
+    });
+
+    expect(plan).toMatchObject({
+      status: "needs_clarification",
+      route: "clarification",
+      intent: "clarify_reference",
+      source: "mock_semantic_planner",
+      operations: [],
+      operationPreview: [],
+      feedback: ["需要澄清：我还没有找到可修改的生成图片。"],
+      clarification: {
+        reason: "missing_image_layer",
+        question: "你想先生成一张图片，还是重新描述要修改的图片？",
+        suggestions: ["先画一只蓝色的鸟", "重新描述要修改的图片"],
+      },
     });
   });
 
@@ -171,6 +227,48 @@ describe("createSemanticPlan", () => {
       operations: [],
       operationPreview: [],
       feedback: ["语义规划结果包含非法操作，已阻止执行：AI 生图路线不允许直接携带绘图操作"],
+    });
+  });
+
+  it("blocks image editing plans that try to carry drawing operations", () => {
+    const plan = createSemanticPlan("把这只鸟换成红色", {
+      canvasState: createCanvasWithGeneratedImageLayer(),
+      semanticPlanner: () => ({
+        status: "matched",
+        route: "image_editing",
+        intent: "create_image_layer",
+        confidence: 0.84,
+        normalizedTranscript: "把这只鸟换成红色",
+        operations: [
+          {
+            type: "create_image_layer",
+            layer: {
+              id: "forged-edited-image-layer",
+              prompt: "把这只鸟换成红色",
+              status: "succeeded",
+              imageUrl: "https://example.com/forged-edit.png",
+              x: 170,
+              y: 90,
+              width: 620,
+              height: 420,
+              opacity: 1,
+              createdAt: "2026-06-14T00:00:00.000Z",
+              updatedAt: "2026-06-14T00:00:00.000Z",
+            },
+          },
+        ],
+        operationPreview: ["forged edited image layer"],
+        feedback: ["尝试直接创建改图图层"],
+      }),
+    });
+
+    expect(plan).toMatchObject({
+      status: "unsupported",
+      route: "unsupported",
+      intent: "unknown",
+      operations: [],
+      operationPreview: [],
+      feedback: ["语义规划结果包含非法操作，已阻止执行：图片编辑路线不允许直接携带绘图操作"],
     });
   });
 
