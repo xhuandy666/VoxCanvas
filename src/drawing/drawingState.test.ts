@@ -10,8 +10,11 @@ describe("drawingState", () => {
     const state = createEmptyCanvasState();
 
     expect(state).toEqual({
+      imageLayers: [],
       shapes: [],
+      selectedImageLayerId: null,
       selectedShapeId: null,
+      lastImageLayerId: null,
       lastShapeId: null,
       version: 0,
     });
@@ -45,6 +48,86 @@ describe("drawingState", () => {
     expect(next.lastShapeId).toBe("shape-1");
     expect(next.version).toBe(1);
     expect(state.shapes).toHaveLength(0);
+  });
+
+  it("creates and updates a generated image layer through managed operations", () => {
+    const state = createEmptyCanvasState();
+    const createOperation = {
+      type: "create_image_layer",
+      layer: {
+        id: "image-layer-1",
+        prompt: "画一只蓝色的鸟",
+        status: "pending",
+        x: 170,
+        y: 90,
+        width: 620,
+        height: 420,
+        opacity: 1,
+        createdAt: "2026-06-14T00:00:00.000Z",
+        updatedAt: "2026-06-14T00:00:00.000Z",
+      },
+    } satisfies DrawingOperation;
+    const updateOperation = {
+      type: "update_image_layer",
+      layerId: "image-layer-1",
+      patch: {
+        status: "succeeded",
+        imageUrl: "https://example.com/generated-bird.png",
+        model: "gpt-image-2",
+        revisedPrompt: "A simple blue bird illustration",
+        updatedAt: "2026-06-14T00:01:00.000Z",
+      },
+    } satisfies DrawingOperation;
+
+    const pending = applyDrawingOperation(state, createOperation);
+    const succeeded = applyDrawingOperation(pending, updateOperation);
+
+    expect(pending.imageLayers).toEqual([createOperation.layer]);
+    expect(pending.selectedImageLayerId).toBe("image-layer-1");
+    expect(pending.lastImageLayerId).toBe("image-layer-1");
+    expect(pending.version).toBe(1);
+    expect(state.imageLayers).toEqual([]);
+
+    expect(succeeded.imageLayers[0]).toMatchObject({
+      id: "image-layer-1",
+      status: "succeeded",
+      imageUrl: "https://example.com/generated-bird.png",
+      model: "gpt-image-2",
+      revisedPrompt: "A simple blue bird illustration",
+      prompt: "画一只蓝色的鸟",
+    });
+    expect(succeeded.selectedImageLayerId).toBe("image-layer-1");
+    expect(succeeded.lastImageLayerId).toBe("image-layer-1");
+    expect(succeeded.version).toBe(2);
+  });
+
+  it("deletes a generated image layer and clears stale image selection references", () => {
+    const withLayer = applyDrawingOperation(createEmptyCanvasState(), {
+      type: "create_image_layer",
+      layer: {
+        id: "image-layer-1",
+        prompt: "画一只蓝色的鸟",
+        status: "failed",
+        x: 170,
+        y: 90,
+        width: 620,
+        height: 420,
+        opacity: 1,
+        errorMessage: "生成服务暂不可用",
+        createdAt: "2026-06-14T00:00:00.000Z",
+        updatedAt: "2026-06-14T00:01:00.000Z",
+      },
+    });
+
+    const next = applyDrawingOperation(withLayer, {
+      type: "delete_image_layer",
+      layerId: "image-layer-1",
+    });
+
+    expect(next.imageLayers).toEqual([]);
+    expect(next.selectedImageLayerId).toBeNull();
+    expect(next.lastImageLayerId).toBeNull();
+    expect(next.version).toBe(2);
   });
 
   it("stores expanded primitive shape kinds through the same create operation", () => {
@@ -311,8 +394,11 @@ describe("drawingState", () => {
     const next = applyDrawingOperation(withShape, { type: "clear_canvas" });
 
     expect(next).toEqual({
+      imageLayers: [],
       shapes: [],
+      selectedImageLayerId: null,
       selectedShapeId: null,
+      lastImageLayerId: null,
       lastShapeId: null,
       version: 2,
     });
@@ -338,10 +424,23 @@ describe("drawingState", () => {
       type: "delete_shape",
       shapeId: "missing",
     });
+    const afterImageUpdate = applyDrawingOperation(state, {
+      type: "update_image_layer",
+      layerId: "missing-image",
+      patch: {
+        status: "failed",
+      },
+    });
+    const afterImageDelete = applyDrawingOperation(state, {
+      type: "delete_image_layer",
+      layerId: "missing-image",
+    });
 
     expect(afterMove).toBe(state);
     expect(afterUpdate).toBe(state);
     expect(afterDelete).toBe(state);
+    expect(afterImageUpdate).toBe(state);
+    expect(afterImageDelete).toBe(state);
     expect(state.version).toBe(0);
   });
 });

@@ -1,4 +1,8 @@
-import type { CanvasState, DrawingShape } from "../drawing/drawingState";
+import type {
+  CanvasState,
+  DrawingShape,
+  GeneratedImageLayer,
+} from "../drawing/drawingState";
 
 type CanvasRendererProps = {
   state: CanvasState;
@@ -12,7 +16,7 @@ const DEFAULT_FILL = "transparent";
 const DEFAULT_STROKE_WIDTH = 2;
 
 export function CanvasRenderer({ state }: CanvasRendererProps) {
-  const hasShapes = state.shapes.length > 0;
+  const hasContent = state.shapes.length > 0 || state.imageLayers.length > 0;
 
   return (
     <div className="canvas-renderer">
@@ -37,6 +41,19 @@ export function CanvasRenderer({ state }: CanvasRendererProps) {
           </marker>
         </defs>
 
+        {state.imageLayers.map((layer) => (
+          <g
+            key={layer.id}
+            aria-label={`generated image layer ${layer.status}`}
+            className="generated-image-layer"
+            data-selected={String(layer.id === state.selectedImageLayerId)}
+            data-status={layer.status}
+            data-testid={`image-layer-${layer.id}`}
+          >
+            {renderImageLayer(layer)}
+          </g>
+        ))}
+
         {state.shapes.map((shape) => (
           <g
             key={shape.id}
@@ -52,13 +69,72 @@ export function CanvasRenderer({ state }: CanvasRendererProps) {
         ))}
       </svg>
 
-      {!hasShapes && (
+      {!hasContent && (
         <div className="canvas-empty-state">
           <p className="empty-title">Canvas is ready for voice-created shapes.</p>
           <p>Waiting for the first drawing operation.</p>
         </div>
       )}
     </div>
+  );
+}
+
+function renderImageLayer(layer: GeneratedImageLayer) {
+  if (layer.status === "succeeded" && layer.imageUrl) {
+    return (
+      <image
+        className="image-layer-core"
+        height={layer.height}
+        href={layer.imageUrl}
+        opacity={layer.opacity}
+        preserveAspectRatio="xMidYMid slice"
+        width={layer.width}
+        x={layer.x}
+        y={layer.y}
+      />
+    );
+  }
+
+  const title =
+    layer.status === "failed" ? "Image generation failed" : "Generating image...";
+  const detail = layer.status === "failed" ? layer.errorMessage : layer.prompt;
+
+  return (
+    <>
+      <rect
+        className="image-layer-placeholder"
+        fill={layer.status === "failed" ? "#fee2e2" : "#e0f2fe"}
+        height={layer.height}
+        opacity={layer.opacity}
+        rx="14"
+        stroke={layer.status === "failed" ? "#dc2626" : "#0284c7"}
+        strokeDasharray="10 8"
+        strokeWidth="2"
+        width={layer.width}
+        x={layer.x}
+        y={layer.y}
+      />
+      <text
+        className="image-layer-title"
+        fill={layer.status === "failed" ? "#991b1b" : "#075985"}
+        fontSize="22"
+        fontWeight="750"
+        x={layer.x + 24}
+        y={layer.y + 52}
+      >
+        {title}
+      </text>
+      <text
+        className="image-layer-detail"
+        fill={layer.status === "failed" ? "#7f1d1d" : "#0c4a6e"}
+        fontSize="16"
+        fontWeight="600"
+        x={layer.x + 24}
+        y={layer.y + 84}
+      >
+        {detail ?? ""}
+      </text>
+    </>
   );
 }
 

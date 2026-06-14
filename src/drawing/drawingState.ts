@@ -26,9 +26,31 @@ export type DrawingShape = {
   style: DrawingShapeStyle;
 };
 
+export type GeneratedImageLayerStatus = "pending" | "succeeded" | "failed";
+
+export type GeneratedImageLayer = {
+  id: string;
+  prompt: string;
+  status: GeneratedImageLayerStatus;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  opacity: number;
+  imageUrl?: string;
+  model?: string;
+  revisedPrompt?: string;
+  errorMessage?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type CanvasState = {
+  imageLayers: GeneratedImageLayer[];
   shapes: DrawingShape[];
+  selectedImageLayerId: string | null;
   selectedShapeId: string | null;
+  lastImageLayerId: string | null;
   lastShapeId: string | null;
   version: number;
 };
@@ -62,17 +84,39 @@ export type ClearCanvasOperation = {
   type: "clear_canvas";
 };
 
+export type CreateImageLayerOperation = {
+  type: "create_image_layer";
+  layer: GeneratedImageLayer;
+};
+
+export type UpdateImageLayerOperation = {
+  type: "update_image_layer";
+  layerId: string;
+  patch: Partial<Omit<GeneratedImageLayer, "id" | "createdAt">>;
+};
+
+export type DeleteImageLayerOperation = {
+  type: "delete_image_layer";
+  layerId: string;
+};
+
 export type DrawingOperation =
   | CreateShapeOperation
   | UpdateShapeOperation
   | MoveShapeOperation
   | DeleteShapeOperation
-  | ClearCanvasOperation;
+  | ClearCanvasOperation
+  | CreateImageLayerOperation
+  | UpdateImageLayerOperation
+  | DeleteImageLayerOperation;
 
 export function createEmptyCanvasState(): CanvasState {
   return {
+    imageLayers: [],
     shapes: [],
+    selectedImageLayerId: null,
     selectedShapeId: null,
+    lastImageLayerId: null,
     lastShapeId: null,
     version: 0,
   };
@@ -182,10 +226,86 @@ export function applyDrawingOperation(
       };
     }
 
+    case "create_image_layer": {
+      const hasLayer = state.imageLayers.some(
+        (layer) => layer.id === operation.layer.id,
+      );
+
+      if (hasLayer) {
+        return state;
+      }
+
+      const nextLayer: GeneratedImageLayer = {
+        ...operation.layer,
+      };
+
+      return {
+        ...state,
+        imageLayers: [...state.imageLayers, nextLayer],
+        selectedImageLayerId: nextLayer.id,
+        lastImageLayerId: nextLayer.id,
+        version: state.version + 1,
+      };
+    }
+
+    case "update_image_layer": {
+      const layerIndex = state.imageLayers.findIndex(
+        (layer) => layer.id === operation.layerId,
+      );
+
+      if (layerIndex === -1) {
+        return state;
+      }
+
+      const nextLayers = state.imageLayers.map((layer, index) => {
+        if (index !== layerIndex) {
+          return layer;
+        }
+
+        return {
+          ...layer,
+          ...operation.patch,
+        };
+      });
+
+      return {
+        ...state,
+        imageLayers: nextLayers,
+        selectedImageLayerId: operation.layerId,
+        lastImageLayerId: operation.layerId,
+        version: state.version + 1,
+      };
+    }
+
+    case "delete_image_layer": {
+      const hasLayer = state.imageLayers.some(
+        (layer) => layer.id === operation.layerId,
+      );
+
+      if (!hasLayer) {
+        return state;
+      }
+
+      return {
+        ...state,
+        imageLayers: state.imageLayers.filter((layer) => layer.id !== operation.layerId),
+        selectedImageLayerId:
+          state.selectedImageLayerId === operation.layerId
+            ? null
+            : state.selectedImageLayerId,
+        lastImageLayerId:
+          state.lastImageLayerId === operation.layerId ? null : state.lastImageLayerId,
+        version: state.version + 1,
+      };
+    }
+
     case "clear_canvas":
       return {
+        imageLayers: [],
         shapes: [],
+        selectedImageLayerId: null,
         selectedShapeId: null,
+        lastImageLayerId: null,
         lastShapeId: null,
         version: state.version + 1,
       };

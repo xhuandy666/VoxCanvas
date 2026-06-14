@@ -49,7 +49,7 @@ describe("App", () => {
       "data-kind",
       "rectangle",
     );
-    expect(screen.getByText("1 shapes / v1")).toBeInTheDocument();
+    expect(screen.getByText("1 shapes / 0 image layers / v1")).toBeInTheDocument();
     expect(screen.getByText("已解析为创建矩形操作")).toBeInTheDocument();
   });
 
@@ -71,7 +71,7 @@ describe("App", () => {
     });
 
     expect(await screen.findAllByLabelText("rectangle shape")).toHaveLength(2);
-    expect(screen.getByText("2 shapes / v2")).toBeInTheDocument();
+    expect(screen.getByText("2 shapes / 0 image layers / v2")).toBeInTheDocument();
   });
 
   it("enables undo, redo, and clear based on canvas history", async () => {
@@ -98,18 +98,18 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /undo/i }));
 
     expect(screen.queryByLabelText("rectangle shape")).not.toBeInTheDocument();
-    expect(screen.getByText("0 shapes / v0")).toBeInTheDocument();
+    expect(screen.getByText("0 shapes / 0 image layers / v0")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /redo/i })).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: /redo/i }));
 
     expect(await screen.findByLabelText("rectangle shape")).toBeInTheDocument();
-    expect(screen.getByText("1 shapes / v1")).toBeInTheDocument();
+    expect(screen.getByText("1 shapes / 0 image layers / v1")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /clear/i }));
 
     expect(screen.queryByLabelText("rectangle shape")).not.toBeInTheDocument();
-    expect(screen.getByText("0 shapes / v2")).toBeInTheDocument();
+    expect(screen.getByText("0 shapes / 0 image layers / v2")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /undo/i })).toBeEnabled();
   });
 
@@ -209,7 +209,7 @@ describe("App", () => {
       "rectangle",
     );
     expect(screen.getAllByLabelText("rectangle shape")).toHaveLength(4);
-    expect(screen.getByText("5 shapes / v5")).toBeInTheDocument();
+    expect(screen.getByText("5 shapes / 0 image layers / v5")).toBeInTheDocument();
     expect(screen.getByText("已展开房子草图模板")).toBeInTheDocument();
   });
 
@@ -225,7 +225,7 @@ describe("App", () => {
     expect(screen.getByText("clarify_reference")).toBeInTheDocument();
     expect(screen.getByText("clarification required: missing_reference")).toBeInTheDocument();
     expect(screen.getByText("需要澄清：我还没有找到可引用的对象。")).toBeInTheDocument();
-    expect(screen.getByText("0 shapes / v0")).toBeInTheDocument();
+    expect(screen.getByText("0 shapes / 0 image layers / v0")).toBeInTheDocument();
     expect(screen.queryByLabelText("circle shape")).not.toBeInTheDocument();
   });
 
@@ -333,7 +333,7 @@ describe("App", () => {
       },
     });
 
-    expect(await screen.findByText("0 shapes / v2")).toBeInTheDocument();
+    expect(await screen.findByText("0 shapes / 0 image layers / v2")).toBeInTheDocument();
     expect(screen.queryByLabelText("circle shape")).not.toBeInTheDocument();
     expect(screen.getByText("已将自然表达归一为清空画布")).toBeInTheDocument();
   });

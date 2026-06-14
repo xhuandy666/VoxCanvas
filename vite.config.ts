@@ -167,8 +167,11 @@ function createUnavailableSemanticPlan(transcript: string): RawSemanticPlanResul
 
 function createEmptyCanvasStateForApi(): CanvasState {
   return {
+    imageLayers: [],
     shapes: [],
+    selectedImageLayerId: null,
     selectedShapeId: null,
+    lastImageLayerId: null,
     lastShapeId: null,
     version: 0,
   };

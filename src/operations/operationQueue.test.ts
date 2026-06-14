@@ -57,6 +57,53 @@ describe("operationQueue", () => {
     expect(result.executed).toBe(true);
   });
 
+  it("applies generated image layer operations through the same queue", () => {
+    const result = executeOperationBatch(
+      createEmptyCanvasState(),
+      createOperationQueueState(),
+      {
+        id: "image-batch-1",
+        operations: [
+          {
+            type: "create_image_layer",
+            layer: {
+              id: "image-layer-1",
+              prompt: "画一只蓝色的鸟",
+              status: "pending",
+              x: 170,
+              y: 90,
+              width: 620,
+              height: 420,
+              opacity: 1,
+              createdAt: "2026-06-14T00:00:00.000Z",
+              updatedAt: "2026-06-14T00:00:00.000Z",
+            },
+          },
+          {
+            type: "update_image_layer",
+            layerId: "image-layer-1",
+            patch: {
+              status: "succeeded",
+              imageUrl: "https://example.com/generated-bird.png",
+              updatedAt: "2026-06-14T00:01:00.000Z",
+            },
+          },
+        ],
+      },
+    );
+
+    expect(result.executed).toBe(true);
+    expect(result.canvasState.imageLayers).toHaveLength(1);
+    expect(result.canvasState.imageLayers[0]).toMatchObject({
+      id: "image-layer-1",
+      status: "succeeded",
+      imageUrl: "https://example.com/generated-bird.png",
+    });
+    expect(result.canvasState.selectedImageLayerId).toBe("image-layer-1");
+    expect(result.canvasState.lastImageLayerId).toBe("image-layer-1");
+    expect(result.canvasState.version).toBe(2);
+  });
+
   it("skips a batch that has already been executed", () => {
     const operationQueue = createOperationQueueState();
     const batch = {
