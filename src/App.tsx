@@ -29,6 +29,7 @@ import {
   createSemanticPlanAsync,
   type SemanticPlanResult,
 } from "./planning/semanticPlanner";
+import { routeSemanticPlan } from "./planning/intentRouter";
 import { createRemoteSemanticPlanner } from "./planning/semanticPlannerClient";
 import { useBrowserSpeech } from "./speech/useBrowserSpeech";
 
@@ -150,7 +151,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <TopBar
-        canClear={canvasState.shapes.length > 0}
+        canClear={canvasState.shapes.length > 0 || canvasState.imageLayers.length > 0}
         canRedo={canRedo(drawingSession.historyState)}
         canUndo={canUndo(drawingSession.historyState)}
         onClear={handleClear}
@@ -177,7 +178,17 @@ function applySemanticPlanToSession(
   currentSession: DrawingSession,
   semanticPlan: SemanticPlanResult,
 ): DrawingSession {
-  const commandTraceState = createCommandTraceStateFromSemanticPlan(semanticPlan);
+  const routedIntent = routeSemanticPlan(semanticPlan, {
+    canvasState: currentSession.historyState.present,
+    createImageLayerId: () =>
+      `voice-image-${currentSession.queueState.executedBatchIds.length + 1}`,
+  });
+  const commandTraceState = createCommandTraceStateFromSemanticPlan({
+    ...semanticPlan,
+    feedback: routedIntent.feedback,
+    operations: routedIntent.operations,
+    operationPreview: routedIntent.operationPreview,
+  });
 
   if (semanticPlan.status !== "matched") {
     return {
@@ -202,7 +213,7 @@ function applySemanticPlanToSession(
     };
   }
 
-  if (semanticPlan.operations.length === 0) {
+  if (routedIntent.operations.length === 0) {
     return {
       ...currentSession,
       commandTraceState,
@@ -214,7 +225,7 @@ function applySemanticPlanToSession(
     currentSession.queueState,
     {
       id: `${semanticPlan.normalizedTranscript}:${currentSession.queueState.executedBatchIds.length}`,
-      operations: semanticPlan.operations,
+      operations: routedIntent.operations,
     },
   );
 

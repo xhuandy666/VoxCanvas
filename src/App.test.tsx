@@ -213,6 +213,30 @@ describe("App", () => {
     expect(screen.getByText("已展开房子草图模板")).toBeInTheDocument();
   });
 
+  it("routes complex visual transcripts into a pending generated image layer", async () => {
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /simulate transcript/i }), {
+      target: {
+        value: "画一只蓝色的鸟",
+      },
+    });
+
+    const imageLayer = await screen.findByTestId("image-layer-voice-image-1");
+
+    expect(imageLayer).toHaveAttribute("data-status", "pending");
+    expect(screen.getByText("0 shapes / 1 image layers / v1")).toBeInTheDocument();
+    expect(screen.getByText("Generating image...")).toBeInTheDocument();
+    expect(screen.getAllByText("画一只蓝色的鸟").length).toBeGreaterThan(0);
+    expect(screen.getByText("create_image_layer")).toBeInTheDocument();
+    expect(
+      screen.getByText("queue image generation: 画一只蓝色的鸟"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("已进入 AI 生图队列，等待生成服务返回结果"),
+    ).toBeInTheDocument();
+  });
+
   it("shows semantic clarification without changing the canvas", () => {
     render(<App />);
 

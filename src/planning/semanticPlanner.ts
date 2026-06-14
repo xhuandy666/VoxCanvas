@@ -27,10 +27,18 @@ export type ClarificationState = {
   suggestions: string[];
 };
 
+export type SemanticPlanIntent =
+  | CommandIntent
+  | "create_image_layer"
+  | "update_image_layer"
+  | "delete_image_layer"
+  | "clarify_command"
+  | "clarify_reference";
+
 export type SemanticPlanResult = {
   status: SemanticPlanStatus;
   route: SemanticPlanRoute;
-  intent: CommandIntent | "clarify_command" | "clarify_reference";
+  intent: SemanticPlanIntent;
   source: SemanticPlanSource;
   confidence: number;
   normalizedTranscript: string;
@@ -181,6 +189,19 @@ function createMockSemanticPlanner(
     };
   }
 
+  if (isImageGenerationCommand(normalizedTranscript)) {
+    return {
+      status: "matched",
+      route: "ai_image_generation",
+      intent: "create_image_layer",
+      confidence: 0.74,
+      normalizedTranscript,
+      operations: [],
+      operationPreview: [`route to AI image generation: ${normalizedTranscript}`],
+      feedback: ["已识别为复杂视觉任务，将通过 AI 生图路径处理"],
+    };
+  }
+
   return {
     status: "unsupported",
     route: "unsupported",
@@ -205,6 +226,18 @@ function createValidatedPlan(
       operations: [],
       operationPreview: plan.operationPreview,
       feedback: plan.feedback,
+    };
+  }
+
+  if (plan.route === "ai_image_generation") {
+    if (plan.operations.length > 0) {
+      return createBlockedPlan(plan, source, ["AI 生图路线不允许直接携带绘图操作"]);
+    }
+
+    return {
+      ...plan,
+      source,
+      operations: [],
     };
   }
 
@@ -251,6 +284,14 @@ function createBlockedPlan(
 
 function isReferenceCommand(transcript: string) {
   return /(它|这个|那个|刚才)/.test(transcript);
+}
+
+function isImageGenerationCommand(transcript: string) {
+  return (
+    /(鸟|猫|狗|人物|人像|森林|城市|场景|风景|插画|海报|水彩|油画|赛博朋克|写实|照片)/.test(
+      transcript,
+    ) && /画|生成|创作|做一张|来一张/.test(transcript)
+  );
 }
 
 function isPromiseLike(value: unknown): value is Promise<RawSemanticPlanResult> {
