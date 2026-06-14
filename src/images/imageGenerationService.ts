@@ -3,6 +3,7 @@ import type {
   DrawingOperation,
   GeneratedImageLayer,
 } from "../drawing/drawingState";
+import { DEFAULT_IMAGE_LAYER_PLACEMENT } from "../canvas/canvasWorkspace";
 
 export type ImageGenerationRequest = {
   canvasState: CanvasState;
@@ -64,10 +65,7 @@ export function createMockImageGenerationService(): ImageGenerationService {
         id: layerId,
         prompt,
         status: "pending",
-        x: 170,
-        y: 90,
-        width: 620,
-        height: 420,
+        ...DEFAULT_IMAGE_LAYER_PLACEMENT,
         opacity: 1,
         model: "mock-image-generation",
         createdAt: now,

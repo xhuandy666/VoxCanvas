@@ -254,15 +254,17 @@ export default function App() {
       />
       <div className="workbench" aria-label="VoxCanvas workbench">
         <CanvasStage state={canvasState} />
-        <VoicePanel
-          onStart={browserSpeech.start}
-          onStop={browserSpeech.stop}
-          onTranscriptChange={browserSpeech.updateTranscript}
-          speechError={browserSpeech.speechError}
-          speechStatus={browserSpeech.speechStatus}
-          state={appState}
-        />
-        <CommandTracePanel state={appState} />
+        <div className="floating-workbench-panels" aria-label="Voice and trace panels">
+          <VoicePanel
+            onStart={browserSpeech.start}
+            onStop={browserSpeech.stop}
+            onTranscriptChange={browserSpeech.updateTranscript}
+            speechError={browserSpeech.speechError}
+            speechStatus={browserSpeech.speechStatus}
+            state={appState}
+          />
+          <CommandTracePanel state={appState} />
+        </div>
       </div>
     </div>
   );

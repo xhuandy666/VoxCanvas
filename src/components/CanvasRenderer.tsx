@@ -3,13 +3,14 @@ import type {
   DrawingShape,
   GeneratedImageLayer,
 } from "../drawing/drawingState";
+import {
+  CANVAS_WORLD_HEIGHT,
+  CANVAS_WORLD_WIDTH,
+} from "../canvas/canvasWorkspace";
 
 type CanvasRendererProps = {
   state: CanvasState;
 };
-
-const CANVAS_WIDTH = 960;
-const CANVAS_HEIGHT = 600;
 
 const DEFAULT_STROKE = "#334155";
 const DEFAULT_FILL = "transparent";
@@ -24,7 +25,7 @@ export function CanvasRenderer({ state }: CanvasRendererProps) {
         aria-label="Rendered drawing canvas"
         className="drawing-svg"
         role="img"
-        viewBox={`0 0 ${CANVAS_WIDTH} ${CANVAS_HEIGHT}`}
+        viewBox={`0 0 ${CANVAS_WORLD_WIDTH} ${CANVAS_WORLD_HEIGHT}`}
       >
         <defs>
           <marker
@@ -87,7 +88,7 @@ function renderImageLayer(layer: GeneratedImageLayer) {
         height={layer.height}
         href={layer.imageUrl}
         opacity={layer.opacity}
-        preserveAspectRatio="xMidYMid slice"
+        preserveAspectRatio="xMidYMid meet"
         width={layer.width}
         x={layer.x}
         y={layer.y}
@@ -95,8 +96,11 @@ function renderImageLayer(layer: GeneratedImageLayer) {
     );
   }
 
-  const title =
-    layer.status === "failed" ? "Image generation failed" : "Generating image...";
+  if (layer.status === "pending") {
+    return renderPendingImageLayer(layer);
+  }
+
+  const title = "Image generation failed";
   const detail = layer.status === "failed" ? layer.errorMessage : layer.prompt;
 
   return (
@@ -136,6 +140,49 @@ function renderImageLayer(layer: GeneratedImageLayer) {
       </text>
     </>
   );
+}
+
+function renderPendingImageLayer(layer: GeneratedImageLayer) {
+  const centerX = layer.x + layer.width / 2;
+  const centerY = layer.y + layer.height / 2;
+  const radius = Math.min(layer.width, layer.height) * 0.07;
+  const loaderPath = describeLoaderArc(centerX, centerY, radius);
+
+  return (
+    <>
+      <rect
+        className="image-layer-placeholder"
+        fill="#e0f2fe"
+        height={layer.height}
+        opacity={layer.opacity}
+        rx="14"
+        stroke="#0284c7"
+        strokeDasharray="10 8"
+        strokeWidth="2"
+        width={layer.width}
+        x={layer.x}
+        y={layer.y}
+      />
+      <g className="image-layer-loader" role="status" aria-label="Generating image">
+        <circle
+          className="image-layer-loader-track"
+          cx={centerX}
+          cy={centerY}
+          r={radius}
+        />
+        <path className="image-layer-loader-ring" d={loaderPath} />
+      </g>
+    </>
+  );
+}
+
+function describeLoaderArc(centerX: number, centerY: number, radius: number) {
+  const startX = centerX;
+  const startY = centerY - radius;
+  const endX = centerX + radius;
+  const endY = centerY;
+
+  return `M ${startX} ${startY} A ${radius} ${radius} 0 0 1 ${endX} ${endY}`;
 }
 
 function renderShape(shape: DrawingShape) {

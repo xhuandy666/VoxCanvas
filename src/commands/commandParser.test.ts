@@ -55,8 +55,8 @@ describe("parseCommand", () => {
         shape: {
           id: "shape-circle-1",
           kind: "circle",
-          x: 410,
-          y: 230,
+          x: 730,
+          y: 430,
           width: 140,
           height: 140,
           rotation: 0,
@@ -85,7 +85,7 @@ describe("parseCommand", () => {
         shape: {
           id: "shape-circle-1",
           kind: "circle",
-          x: 340,
+          x: 660,
         },
       },
       {
@@ -93,7 +93,7 @@ describe("parseCommand", () => {
         shape: {
           id: "shape-circle-2",
           kind: "circle",
-          x: 480,
+          x: 800,
         },
       },
     ]);
@@ -118,8 +118,8 @@ describe("parseCommand", () => {
         shape: {
           id: "shape-rectangle-1",
           kind: "rectangle",
-          x: 90,
-          y: 60,
+          x: 190,
+          y: 120,
           width: 180,
           height: 120,
           rotation: 0,

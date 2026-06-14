@@ -6,6 +6,12 @@ import type {
   DrawingShapeStyle,
 } from "../drawing/drawingState";
 import {
+  CANVAS_WORLD_CENTER_X,
+  CANVAS_WORLD_CENTER_Y,
+  CANVAS_WORLD_HEIGHT,
+  CANVAS_WORLD_WIDTH,
+} from "../canvas/canvasWorkspace";
+import {
   expandShapeTemplate,
   type ShapeTemplateKind,
 } from "./shapeTemplateExpander";
@@ -53,8 +59,8 @@ type CommandPosition = {
 
 const DEFAULT_POSITION = {
   label: "center",
-  x: 480,
-  y: 300,
+  x: CANVAS_WORLD_CENTER_X,
+  y: CANVAS_WORLD_CENTER_Y,
 };
 
 const COLORS: CommandColor[] = [
@@ -100,32 +106,32 @@ const POSITIONS: CommandPosition[] = [
   {
     label: "top-left",
     words: ["左上角", "左上"],
-    x: 180,
-    y: 120,
+    x: 280,
+    y: 180,
   },
   {
     label: "top-right",
     words: ["右上角", "右上"],
-    x: 700,
-    y: 120,
+    x: CANVAS_WORLD_WIDTH - 280,
+    y: 180,
   },
   {
     label: "bottom-left",
     words: ["左下角", "左下"],
-    x: 180,
-    y: 460,
+    x: 280,
+    y: CANVAS_WORLD_HEIGHT - 180,
   },
   {
     label: "bottom-right",
     words: ["右下角", "右下"],
-    x: 700,
-    y: 460,
+    x: CANVAS_WORLD_WIDTH - 280,
+    y: CANVAS_WORLD_HEIGHT - 180,
   },
   {
     label: "center",
     words: ["中间", "中央", "中心"],
-    x: 480,
-    y: 300,
+    x: CANVAS_WORLD_CENTER_X,
+    y: CANVAS_WORLD_CENTER_Y,
   },
 ];
 

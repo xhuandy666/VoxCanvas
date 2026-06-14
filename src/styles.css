@@ -15,6 +15,7 @@
   --color-accent: oklch(0.52 0.145 32);
   --color-accent-soft: oklch(0.96 0.034 32);
   --color-focus: oklch(0.44 0.105 170);
+  --canvas-toolbar-height: 42px;
   --radius-panel: 12px;
   --radius-control: 10px;
   --shadow-small: 0 4px 8px oklch(0.18 0.026 185 / 0.08);
@@ -157,14 +158,17 @@ h1 {
 }
 
 .workbench {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(220px, 240px) minmax(560px, 1fr) minmax(260px, 280px);
-  gap: 16px;
   width: 100%;
-  max-width: 1680px;
-  margin: 0 auto;
-  padding: 16px;
+  min-height: calc(100dvh - 73px);
+  padding: 0;
   flex: 1;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at center, oklch(0.82 0.022 210) 1.25px, transparent 1.45px)
+      0 0 / 28px 28px,
+    var(--color-bg);
 }
 
 .panel,
@@ -179,6 +183,30 @@ h1 {
   flex-direction: column;
   gap: 18px;
   padding: 16px;
+  max-height: calc(100dvh - 121px);
+  overflow: auto;
+  background: oklch(0.982 0.006 170 / 0.96);
+}
+
+.floating-workbench-panels {
+  position: absolute;
+  top: calc(var(--canvas-toolbar-height) + (100% - var(--canvas-toolbar-height)) / 2);
+  right: 24px;
+  left: 24px;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) minmax(260px, 300px);
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.floating-workbench-panels > .panel {
+  width: 100%;
+  max-height: min(640px, calc(100dvh - 150px));
+  pointer-events: auto;
 }
 
 .panel-header h2 {
@@ -274,13 +302,12 @@ textarea {
 
 .canvas-stage {
   display: grid;
-  grid-column: 2;
-  grid-row: 1;
   grid-template-rows: auto 1fr;
-  min-height: 620px;
+  min-height: calc(100dvh - 73px);
   overflow: hidden;
-  background: var(--color-bg);
-  box-shadow: var(--shadow-small);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .canvas-toolbar {
@@ -288,30 +315,34 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--color-border);
+  min-height: var(--canvas-toolbar-height);
+  padding: 10px 24px;
+  border-bottom: 1px solid oklch(0.88 0.014 180 / 0.72);
   color: var(--color-muted);
   font-size: 0.85rem;
   font-weight: 700;
+  background: oklch(1 0 0 / 0.9);
 }
 
 .canvas-surface {
   position: relative;
   display: grid;
-  min-height: 520px;
+  min-height: calc(100dvh - 115px);
   place-items: stretch;
   overflow: hidden;
-  background: var(--color-bg);
+  background: transparent;
 }
 
 .canvas-grid {
   position: absolute;
   inset: 0;
-  background-image:
-    linear-gradient(var(--color-border) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
-  background-size: 40px 40px;
-  opacity: 0.45;
+  background-image: radial-gradient(
+    circle,
+    oklch(0.74 0.028 220) 1.3px,
+    transparent 1.45px
+  );
+  background-size: 28px 28px;
+  opacity: 0.7;
 }
 
 .canvas-empty-state {
@@ -339,7 +370,7 @@ textarea {
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 520px;
+  min-height: calc(100dvh - 115px);
 }
 
 .drawing-shape .shape-core {
@@ -358,6 +389,33 @@ textarea {
   stroke: white;
   stroke-width: 4px;
   stroke-linejoin: round;
+}
+
+.image-layer-loader {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: image-layer-loader-spin 1s linear infinite;
+}
+
+.image-layer-loader-track,
+.image-layer-loader-ring {
+  fill: none;
+  stroke-width: 8px;
+}
+
+.image-layer-loader-track {
+  stroke: #bae6fd;
+}
+
+.image-layer-loader-ring {
+  stroke: #0284c7;
+  stroke-linecap: round;
+}
+
+@keyframes image-layer-loader-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .canvas-empty-state p {
@@ -400,21 +458,37 @@ textarea {
 
 @media (max-width: 1180px) {
   .workbench {
-    grid-template-columns: 1fr;
+    gap: 12px;
+    min-height: auto;
+    padding: 10px;
+    overflow: visible;
   }
 
   .canvas-stage {
-    grid-column: auto;
-    grid-row: auto;
     order: 1;
+    min-height: 560px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-small);
   }
 
-  .voice-panel {
+  .floating-workbench-panels {
+    position: static;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     order: 2;
+    gap: 12px;
+    transform: none;
+    pointer-events: auto;
   }
 
+  .floating-workbench-panels > .panel {
+    max-height: none;
+  }
+
+  .voice-panel,
   .trace-panel {
-    order: 3;
+    order: initial;
   }
 }
 
@@ -436,7 +510,15 @@ textarea {
     min-height: 480px;
   }
 
+  .floating-workbench-panels {
+    grid-template-columns: 1fr;
+  }
+
   .canvas-surface {
+    min-height: 390px;
+  }
+
+  .drawing-svg {
     min-height: 390px;
   }
 }
