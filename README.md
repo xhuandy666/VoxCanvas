@@ -99,7 +99,7 @@ VOXCANVAS_IMAGE_SIZE=2K
 
 Demo 视频展示了 VoxCanvas 的语音绘图主链路，包括基础图形创建、对象编辑、撤销重做、复杂结构化绘图，以及 AI 生图与语音改图能力。
 
-演示视频：[docs/assets/demo.mov](docs/assets/demo.mov)
+演示视频：[docs/assets/voxcanvas.mp4](docs/assets/voxcanvas.mp4)
 
 ## 提交材料目标
 
