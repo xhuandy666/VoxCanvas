@@ -34,7 +34,7 @@ export type CommandParseResult = {
 
 export type ParseCommandOptions = {
   canvasState?: CanvasState;
-  createShapeId?: (kind: DrawingShapeKind, transcript: string) => string;
+  createShapeId?: (kind: DrawingShapeKind, transcript: string, index?: number) => string;
 };
 
 type CommandColor = {
@@ -189,6 +189,14 @@ export function parseCommand(
     return createObjectReferenceResult(normalizedTranscript, options);
   }
 
+  if (isExplicitShapeEditCommand(normalizedTranscript)) {
+    return createObjectReferenceResult(normalizedTranscript, options);
+  }
+
+  if (isImplicitReferenceMovementCommand(normalizedTranscript)) {
+    return createObjectReferenceResult(normalizedTranscript, options);
+  }
+
   const shapeKind = findShapeKind(normalizedTranscript);
 
   if (shapeKind) {
@@ -232,18 +240,17 @@ function createShapeResult(
 ): CommandParseResult {
   const color = findColor(transcript);
   const position = findPosition(transcript);
-  const shape = createShape(kind, transcript, color, position, options);
-  const operationPreview = createOperationPreview(kind, color, position);
+  const count = findShapeCount(transcript);
+  const operations = Array.from({ length: count }, (_, index) => ({
+    type: "create_shape" as const,
+    shape: createShape(kind, transcript, color, position, options, index, count),
+  }));
+  const operationPreview = createOperationPreview(kind, color, position, count);
 
   return {
     status: "matched",
     intent: "create_shape",
-    operations: [
-      {
-        type: "create_shape",
-        shape,
-      },
-    ],
+    operations,
     operationPreview,
     feedback: [`已解析为创建${getShapeLabel(kind)}操作`],
     normalizedTranscript: transcript,
@@ -256,15 +263,18 @@ function createShape(
   color: CommandColor,
   position: CommandPosition | null,
   options: ParseCommandOptions,
+  index = 0,
+  count = 1,
 ): DrawingShape {
   const anchor = position ?? DEFAULT_POSITION;
   const size = getDefaultSize(kind);
   const style = getShapeStyle(kind, color);
+  const offsetX = getRepeatedShapeOffsetX(index, count);
 
   const shape: DrawingShape = {
-    id: options.createShapeId?.(kind, transcript) ?? `preview-${kind}`,
+    id: options.createShapeId?.(kind, transcript, index) ?? `preview-${kind}-${index + 1}`,
     kind,
-    x: getShapeX(anchor.x, size.width),
+    x: getShapeX(anchor.x + offsetX, size.width),
     y: getShapeY(kind, anchor.y, size.height),
     width: size.width,
     height: size.height,
@@ -470,11 +480,16 @@ function createOperationPreview(
   kind: DrawingShapeKind,
   color: CommandColor,
   position: CommandPosition | null,
+  count = 1,
 ) {
   const parts = [`add shape: ${kind}`, `color: ${color.label}`];
 
   if (position) {
     parts.push(`position: ${position.label}`);
+  }
+
+  if (count > 1) {
+    parts.push(`count: ${count}`);
   }
 
   return [parts.join(", ")];
@@ -485,7 +500,9 @@ function normalizeTranscript(transcript: string) {
 }
 
 function isClearCanvasCommand(transcript: string) {
-  return /清空|清除画布|清除|清屏/.test(transcript);
+  return /清空|清除画布|清除|清屏|重新来|重来|从头来|回到最初状态|回到初始状态|全部清掉/.test(
+    transcript,
+  );
 }
 
 function isUndoCommand(transcript: string) {
@@ -504,6 +521,27 @@ function isObjectReferenceCommand(transcript: string) {
   return /(它|刚才|这个|那个)/.test(transcript);
 }
 
+function isExplicitShapeEditCommand(transcript: string) {
+  return (
+    findShapeKind(transcript) !== null &&
+    !isCreateShapeCommand(transcript) &&
+    (
+      isDeleteCommand(transcript) ||
+      findMovement(transcript) !== null ||
+      findSizeScale(transcript) !== null ||
+      isExplicitColorEditCommand(transcript)
+    )
+  );
+}
+
+function isImplicitReferenceMovementCommand(transcript: string) {
+  return (
+    findMovement(transcript) !== null &&
+    !findShapeKind(transcript) &&
+    !/(把|将|让|使|图形|对象|形状)/.test(transcript)
+  );
+}
+
 function findShapeTemplateKind(transcript: string): ShapeTemplateKind | null {
   if (/房子|房屋|小房子|小屋/.test(transcript)) {
     return "house";
@@ -514,6 +552,14 @@ function findShapeTemplateKind(transcript: string): ShapeTemplateKind | null {
   }
 
   return null;
+}
+
+function isCreateShapeCommand(transcript: string) {
+  return /画|创建|添加|来个|来一个|做个|做一个|摆放/.test(transcript);
+}
+
+function isExplicitColorEditCommand(transcript: string) {
+  return /变成|变为|改成|改为|换成|换为/.test(transcript) && findExplicitColor(transcript) !== null;
 }
 
 function findReferencedShapeKind(transcript: string): DrawingShapeKind | null {
@@ -573,7 +619,7 @@ function findMovement(transcript: string) {
     };
   }
 
-  if (/向上|上方|往上/.test(transcript)) {
+  if (/向上|上方|往上|上移|往上一/.test(transcript)) {
     return {
       deltaX: 0,
       deltaY: -60,
@@ -600,6 +646,37 @@ function findSizeScale(transcript: string) {
   }
 
   return null;
+}
+
+function findShapeCount(transcript: string) {
+  const match = transcript.match(/[画创建添加来做摆放]+([一二两三四五2-5])(?:个|只|条|块|张)?/);
+  const countText = match?.[1];
+
+  switch (countText) {
+    case "二":
+    case "两":
+    case "2":
+      return 2;
+    case "三":
+    case "3":
+      return 3;
+    case "四":
+    case "4":
+      return 4;
+    case "五":
+    case "5":
+      return 5;
+    default:
+      return 1;
+  }
+}
+
+function getRepeatedShapeOffsetX(index: number, count: number) {
+  if (count <= 1) {
+    return 0;
+  }
+
+  return (index - (count - 1) / 2) * 140;
 }
 
 function getScaledShapePatch(shape: DrawingShape, scale: number) {

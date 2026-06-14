@@ -2,6 +2,7 @@ import { parseCommand, type CommandParseResult, type ParseCommandOptions } from 
 import type { SemanticPlanResult } from "../planning/semanticPlanner";
 
 export type CommandTraceState = {
+  recognizedText: string;
   parsedIntent: string;
   operationPreview: string[];
   feedbackLog: string[];
@@ -9,8 +10,10 @@ export type CommandTraceState = {
 
 export function createCommandTraceStateFromResult(
   result: CommandParseResult,
+  recognizedText = result.normalizedTranscript,
 ): CommandTraceState {
   return {
+    recognizedText,
     parsedIntent: result.intent,
     operationPreview:
       result.operationPreview.length > 0
@@ -22,6 +25,7 @@ export function createCommandTraceStateFromResult(
 
 export function createCommandTraceStateFromSemanticPlan(
   plan: SemanticPlanResult,
+  recognizedText = plan.normalizedTranscript,
 ): CommandTraceState {
   const operationPreview =
     plan.clarification !== undefined
@@ -29,6 +33,7 @@ export function createCommandTraceStateFromSemanticPlan(
       : plan.operationPreview;
 
   return {
+    recognizedText,
     parsedIntent: plan.intent,
     operationPreview:
       operationPreview.length > 0 ? operationPreview : ["no operation preview"],
@@ -40,5 +45,5 @@ export function createCommandTraceState(
   transcript: string,
   options: ParseCommandOptions = {},
 ): CommandTraceState {
-  return createCommandTraceStateFromResult(parseCommand(transcript, options));
+  return createCommandTraceStateFromResult(parseCommand(transcript, options), transcript);
 }

@@ -8,7 +8,7 @@ import type {
 export type ShapeTemplateKind = "house" | "flowchart";
 
 export type ShapeTemplateExpandOptions = {
-  createShapeId?: (kind: DrawingShapeKind, transcript: string) => string;
+  createShapeId?: (kind: DrawingShapeKind, transcript: string, index?: number) => string;
   transcript: string;
 };
 

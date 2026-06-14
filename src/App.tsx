@@ -45,11 +45,14 @@ export default function App() {
     language: mockAppState.language,
   });
   const hasSkippedInitialTranscript = useRef(false);
+  const shouldPreserveTraceOnEmptyTranscript = useRef(false);
   const [drawingSession, setDrawingSession] = useState(() => ({
     commandTraceState: createCommandTraceState(mockAppState.transcript),
     historyState: createHistoryState(createEmptyCanvasState()),
     queueState: createOperationQueueState(),
   }));
+  const drawingSessionRef = useRef<DrawingSession>(drawingSession);
+  drawingSessionRef.current = drawingSession;
 
   const handleUndo = useCallback(() => {
     setDrawingSession((currentSession) => ({
@@ -96,48 +99,90 @@ export default function App() {
 
     const transcript = browserSpeech.transcript;
     let cancelled = false;
+    const currentSession = drawingSessionRef.current;
 
-    setDrawingSession((currentSession) => {
-      if (!transcript.trim()) {
-        return {
-          ...currentSession,
+    if (!transcript.trim()) {
+      setDrawingSession((latestSession) => {
+        if (shouldPreserveTraceOnEmptyTranscript.current) {
+          shouldPreserveTraceOnEmptyTranscript.current = false;
+          return latestSession;
+        }
+
+        const nextSession = {
+          ...latestSession,
           commandTraceState: createCommandTraceState(transcript),
         };
-      }
 
-      const nextBatchNumber = currentSession.queueState.executedBatchIds.length + 1;
-      const semanticPlan = createSemanticPlan(transcript, {
-        canvasState: currentSession.historyState.present,
-        createShapeId: (kind) => `voice-${kind}-${nextBatchNumber}`,
+        drawingSessionRef.current = nextSession;
+
+        return nextSession;
       });
 
-      if (
-        semanticPlan.source === "mock_semantic_planner" &&
-        semanticPlan.status === "unsupported"
-      ) {
-        void createSemanticPlanAsync(transcript, {
-          canvasState: currentSession.historyState.present,
-          createShapeId: (kind) => `voice-${kind}-${nextBatchNumber}`,
-          semanticPlanner: createRemoteSemanticPlanner(),
-          semanticPlannerSource: "llm_semantic_planner",
-        }).then((remoteSemanticPlan) => {
-          if (cancelled) {
-            return;
-          }
+      return () => {
+        cancelled = true;
+      };
+    }
 
-          setDrawingSession((latestSession) =>
-            applySemanticPlanToSession(latestSession, remoteSemanticPlan),
-          );
-        });
-      }
+    if (!browserSpeech.isTranscriptFinal) {
+      return () => {
+        cancelled = true;
+      };
+    }
 
-      return applySemanticPlanToSession(currentSession, semanticPlan);
+    const nextBatchNumber = currentSession.queueState.executedBatchIds.length + 1;
+    const semanticPlan = createSemanticPlan(transcript, {
+      canvasState: currentSession.historyState.present,
+      createShapeId: (kind, _transcript, index) =>
+        createVoiceShapeId(kind, nextBatchNumber, index),
     });
+    const usesRemotePlanner =
+      semanticPlan.source === "mock_semantic_planner" &&
+      semanticPlan.status === "unsupported";
+
+    const nextSession = applySemanticPlanToSession(currentSession, semanticPlan, transcript);
+    drawingSessionRef.current = nextSession;
+    setDrawingSession(nextSession);
+
+    if (usesRemotePlanner) {
+      void createSemanticPlanAsync(transcript, {
+        canvasState: currentSession.historyState.present,
+        createShapeId: (kind, _transcript, index) =>
+          createVoiceShapeId(kind, nextBatchNumber, index),
+        semanticPlanner: createRemoteSemanticPlanner(),
+        semanticPlannerSource: "llm_semantic_planner",
+      }).then((remoteSemanticPlan) => {
+        if (cancelled) {
+          return;
+        }
+
+        setDrawingSession((latestSession) => {
+          const remoteSession = applySemanticPlanToSession(
+            latestSession,
+            remoteSemanticPlan,
+            transcript,
+          );
+          drawingSessionRef.current = remoteSession;
+
+          return remoteSession;
+        });
+
+        shouldPreserveTraceOnEmptyTranscript.current = true;
+        browserSpeech.clearTranscript();
+      });
+    }
+
+    if (transcript.trim() && browserSpeech.isTranscriptFinal && !usesRemotePlanner) {
+      shouldPreserveTraceOnEmptyTranscript.current = true;
+      browserSpeech.clearTranscript();
+    }
 
     return () => {
       cancelled = true;
     };
-  }, [browserSpeech.transcript]);
+  }, [
+    browserSpeech.clearTranscript,
+    browserSpeech.transcriptRevision,
+  ]);
 
   const canvasState = drawingSession.historyState.present;
 
@@ -174,9 +219,16 @@ export default function App() {
   );
 }
 
+function createVoiceShapeId(kind: string, batchNumber: number, index = 0) {
+  const baseId = `voice-${kind}-${batchNumber}`;
+
+  return index === 0 ? baseId : `${baseId}-${index + 1}`;
+}
+
 function applySemanticPlanToSession(
   currentSession: DrawingSession,
   semanticPlan: SemanticPlanResult,
+  recognizedText = semanticPlan.normalizedTranscript,
 ): DrawingSession {
   const routedIntent = routeSemanticPlan(semanticPlan, {
     canvasState: currentSession.historyState.present,
@@ -188,7 +240,7 @@ function applySemanticPlanToSession(
     feedback: routedIntent.feedback,
     operations: routedIntent.operations,
     operationPreview: routedIntent.operationPreview,
-  });
+  }, recognizedText);
 
   if (semanticPlan.status !== "matched") {
     return {

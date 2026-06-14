@@ -18,7 +18,7 @@ type ResponseOutput = {
   content?: unknown;
 };
 
-const semanticPlanJsonSchema = {
+export const semanticPlanJsonSchema = {
   type: "object",
   additionalProperties: false,
   required: [
@@ -127,18 +127,7 @@ export function createOpenAIResponsesRequestBody({
         content: [
           {
             type: "input_text",
-            text: [
-              "你是 VoxCanvas 的 LLM Semantic Planner。",
-              "LLM 只负责语义理解、纠错、任务路由、澄清问题和结构化规划。",
-              "不要直接修改 DOM、SVG、CanvasState，不要输出前端代码。",
-              "简单结构化绘图只能输出合法 DrawingOperation 候选，后续会经过 OperationValidator。",
-              "当前支持的 shape.kind 包括 circle、rectangle、line、arrow、text、triangle、diamond、ellipse。",
-              "房子草图和流程图可以使用 create_template intent 表达模板意图，operations 仍必须展开为合法 DrawingOperation。",
-              "AI 生图与语音改图路线当前只做任务路由，不要在语义规划里伪造图片 URL。",
-              "如果用户意图模糊或目标对象不存在，使用 needs_clarification。",
-              "如果用户请求复杂视觉对象或风格化画面，route 使用 ai_image_generation，operations 为空。",
-              "如果用户请求基于旧生成图的风格或内容修改，route 使用 image_editing，operations 为空。",
-            ].join("\n"),
+            text: createSemanticPlannerSystemPrompt(),
           },
         ],
       },
@@ -147,21 +136,7 @@ export function createOpenAIResponsesRequestBody({
         content: [
           {
             type: "input_text",
-            text: JSON.stringify(
-              {
-                transcript,
-                canvasState: summarizeCanvasState(canvasState),
-                responseContract: {
-                  status: "matched | unsupported | needs_clarification",
-                  route:
-                    "structured_drawing | clarification | unsupported | ai_image_generation | image_editing",
-                  operations:
-                    "Only include DrawingOperation objects when route is structured_drawing and status is matched.",
-                },
-              },
-              null,
-              2,
-            ),
+            text: createSemanticPlannerUserPrompt({ canvasState, transcript }),
           },
         ],
       },
@@ -175,6 +150,43 @@ export function createOpenAIResponsesRequestBody({
       },
     },
   };
+}
+
+export function createSemanticPlannerSystemPrompt() {
+  return [
+    "你是 VoxCanvas 的 LLM Semantic Planner。",
+    "LLM 只负责语义理解、纠错、任务路由、澄清问题和结构化规划。",
+    "不要直接修改 DOM、SVG、CanvasState，不要输出前端代码。",
+    "简单结构化绘图只能输出合法 DrawingOperation 候选，后续会经过 OperationValidator。",
+    "当前支持的 shape.kind 包括 circle、rectangle、line、arrow、text、triangle、diamond、ellipse。",
+    "房子草图和流程图可以使用 create_template intent 表达模板意图，operations 仍必须展开为合法 DrawingOperation。",
+    "AI 生图与语音改图路线当前只做任务路由，不要在语义规划里伪造图片 URL。",
+    "如果用户意图模糊或目标对象不存在，使用 needs_clarification。",
+    "如果用户请求复杂视觉对象或风格化画面，route 使用 ai_image_generation，operations 为空。",
+    "如果用户请求基于旧生成图的风格或内容修改，route 使用 image_editing，operations 为空。",
+    "只返回一个 JSON object，不要返回 Markdown、代码块或额外解释。",
+  ].join("\n");
+}
+
+export function createSemanticPlannerUserPrompt({
+  canvasState,
+  transcript,
+}: CreateOpenAIResponsesRequestBodyOptions) {
+  return JSON.stringify(
+    {
+      transcript,
+      canvasState: summarizeCanvasState(canvasState),
+      responseContract: {
+        status: "matched | unsupported | needs_clarification",
+        route:
+          "structured_drawing | clarification | unsupported | ai_image_generation | image_editing",
+        operations:
+          "Only include DrawingOperation objects when route is structured_drawing and status is matched.",
+      },
+    },
+    null,
+    2,
+  );
 }
 
 export function extractSemanticPlanFromOpenAIResponse(

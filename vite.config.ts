@@ -6,8 +6,18 @@ import {
   extractSemanticPlanFromOpenAIResponse,
   OPENAI_SEMANTIC_PLANNER_MODEL,
 } from "./src/planning/openAIResponsesPlanner";
+import {
+  createOpenAICompatibleChatRequestBody,
+  DASHSCOPE_SEMANTIC_PLANNER_MODEL,
+  extractSemanticPlanFromOpenAICompatibleChatResponse,
+} from "./src/planning/openAICompatibleChatPlanner";
 import type { CanvasState } from "./src/drawing/drawingState";
 import type { RawSemanticPlanResult } from "./src/planning/semanticPlanner";
+
+const OPENAI_RESPONSES_ENDPOINT = "https://api.openai.com/v1/responses";
+const DASHSCOPE_COMPATIBLE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
+
+type SemanticPlanProvider = "openai" | "dashscope";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, getProcessCwd(), "");
@@ -49,6 +59,8 @@ type RuntimeFetch = (
 ) => Promise<{
   json: () => Promise<unknown>;
   ok: boolean;
+  status?: number;
+  text?: () => Promise<string>;
 }>;
 
 type RuntimeProcess = {
@@ -74,8 +86,20 @@ function createSemanticPlanApiPlugin(env: Record<string, string>): PluginOption 
         const transcript = payload.transcript ?? payload.normalizedTranscript ?? "";
         const canvasState = payload.canvasState ?? createEmptyCanvasStateForApi();
 
-        if (!env.OPENAI_API_KEY) {
-          sendJson(apiResponse, 200, createUnavailableSemanticPlan(transcript));
+        const provider = getSemanticPlanProvider(env);
+        const apiKey = getProviderApiKey(provider, env);
+
+        if (!apiKey) {
+          sendJson(
+            apiResponse,
+            200,
+            createUnavailableSemanticPlan(
+              transcript,
+              `未检测到 ${getProviderApiKeyName(
+                provider,
+              )}。请确认 .env 已配置，并重启 dev server`,
+            ),
+          );
           return;
         }
 
@@ -83,41 +107,171 @@ function createSemanticPlanApiPlugin(env: Record<string, string>): PluginOption 
           const fetchImpl = getRuntimeFetch();
 
           if (!fetchImpl) {
-            sendJson(apiResponse, 502, createUnavailableSemanticPlan(transcript));
+            sendJson(
+              apiResponse,
+              502,
+              createUnavailableSemanticPlan(transcript, "当前 Node 运行环境不支持 fetch"),
+            );
             return;
           }
 
-          const openAIResponse = await fetchImpl("https://api.openai.com/v1/responses", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${env.OPENAI_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(
-              createOpenAIResponsesRequestBody({
-                canvasState,
-                model: env.VOXCANVAS_LLM_MODEL || OPENAI_SEMANTIC_PLANNER_MODEL,
-                transcript,
-              }),
-            ),
+          const providerResponse = await requestSemanticPlanFromProvider({
+            apiKey,
+            canvasState,
+            env,
+            fetchImpl,
+            provider,
+            transcript,
           });
 
-          if (!openAIResponse.ok) {
-            sendJson(apiResponse, 502, createUnavailableSemanticPlan(transcript));
+          if (!providerResponse.ok) {
+            const errorMessage = await readProviderErrorMessage(providerResponse);
+
+            sendJson(
+              apiResponse,
+              502,
+              createUnavailableSemanticPlan(
+                transcript,
+                `${getProviderDisplayName(provider)} 返回 HTTP ${
+                  providerResponse.status ?? "错误"
+                }${
+                  errorMessage ? `：${errorMessage}` : ""
+                }`,
+              ),
+            );
             return;
           }
 
           sendJson(
             apiResponse,
             200,
-            extractSemanticPlanFromOpenAIResponse(await openAIResponse.json()),
+            normalizeProviderSemanticPlan(
+              extractSemanticPlanFromProviderResponse(
+                provider,
+                await providerResponse.json(),
+              ),
+              transcript,
+            ),
           );
-        } catch {
-          sendJson(apiResponse, 502, createUnavailableSemanticPlan(transcript));
+        } catch (error) {
+          sendJson(
+            apiResponse,
+            502,
+            createUnavailableSemanticPlan(
+              transcript,
+              `本地代理请求失败：${getSafeErrorMessage(error)}`,
+            ),
+          );
         }
       });
     },
   };
+}
+
+type SemanticPlanProviderRequest = {
+  apiKey: string;
+  canvasState: CanvasState;
+  env: Record<string, string>;
+  fetchImpl: RuntimeFetch;
+  provider: SemanticPlanProvider;
+  transcript: string;
+};
+
+export function getSemanticPlanProvider(
+  env: Record<string, string>,
+): SemanticPlanProvider {
+  return env.VOXCANVAS_LLM_PROVIDER?.toLowerCase() === "dashscope"
+    ? "dashscope"
+    : "openai";
+}
+
+export function getProviderApiKey(
+  provider: SemanticPlanProvider,
+  env: Record<string, string>,
+) {
+  return provider === "dashscope" ? env.DASHSCOPE_API_KEY : env.OPENAI_API_KEY;
+}
+
+export function getProviderApiKeyName(provider: SemanticPlanProvider) {
+  return provider === "dashscope" ? "DASHSCOPE_API_KEY" : "OPENAI_API_KEY";
+}
+
+export function getProviderDisplayName(provider: SemanticPlanProvider) {
+  return provider === "dashscope"
+    ? "DashScope OpenAI 兼容接口"
+    : "OpenAI Responses API";
+}
+
+export function getProviderModel(
+  provider: SemanticPlanProvider,
+  env: Record<string, string>,
+) {
+  if (env.VOXCANVAS_LLM_MODEL) {
+    return env.VOXCANVAS_LLM_MODEL;
+  }
+
+  return provider === "dashscope"
+    ? DASHSCOPE_SEMANTIC_PLANNER_MODEL
+    : OPENAI_SEMANTIC_PLANNER_MODEL;
+}
+
+export function getDashScopeChatCompletionsEndpoint(env: Record<string, string>) {
+  const baseUrl =
+    env.VOXCANVAS_DASHSCOPE_BASE_URL ||
+    env.VOXCANVAS_LLM_BASE_URL ||
+    DASHSCOPE_COMPATIBLE_BASE_URL;
+
+  return `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
+}
+
+function requestSemanticPlanFromProvider({
+  apiKey,
+  canvasState,
+  env,
+  fetchImpl,
+  provider,
+  transcript,
+}: SemanticPlanProviderRequest) {
+  if (provider === "dashscope") {
+    return fetchImpl(getDashScopeChatCompletionsEndpoint(env), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+        createOpenAICompatibleChatRequestBody({
+          canvasState,
+          model: getProviderModel(provider, env),
+          transcript,
+        }),
+      ),
+    });
+  }
+
+  return fetchImpl(OPENAI_RESPONSES_ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(
+      createOpenAIResponsesRequestBody({
+        canvasState,
+        model: getProviderModel(provider, env),
+        transcript,
+      }),
+    ),
+  });
+}
+
+function extractSemanticPlanFromProviderResponse(
+  provider: SemanticPlanProvider,
+  response: unknown,
+) {
+  return provider === "dashscope"
+    ? extractSemanticPlanFromOpenAICompatibleChatResponse(response)
+    : extractSemanticPlanFromOpenAIResponse(response);
 }
 
 async function readSemanticPlanPayload(
@@ -152,7 +306,14 @@ function sendJson(
   response.end(JSON.stringify(payload));
 }
 
-function createUnavailableSemanticPlan(transcript: string): RawSemanticPlanResult {
+function createUnavailableSemanticPlan(
+  transcript: string,
+  reason?: string,
+): RawSemanticPlanResult {
+  const feedback = reason
+    ? [`LLM 语义规划暂不可用：${reason}，已保留安全失败状态`]
+    : ["LLM 语义规划暂不可用，已保留安全失败状态"];
+
   return {
     status: "unsupported",
     route: "unsupported",
@@ -161,7 +322,7 @@ function createUnavailableSemanticPlan(transcript: string): RawSemanticPlanResul
     normalizedTranscript: transcript,
     operations: [],
     operationPreview: [],
-    feedback: ["LLM 语义规划暂不可用，已保留安全失败状态"],
+    feedback,
   };
 }
 
@@ -175,6 +336,135 @@ function createEmptyCanvasStateForApi(): CanvasState {
     lastShapeId: null,
     version: 0,
   };
+}
+
+export function normalizeProviderSemanticPlan(
+  rawPlan: unknown,
+  fallbackTranscript: string,
+): RawSemanticPlanResult {
+  if (!isRecord(rawPlan)) {
+    return createUnavailableSemanticPlan(
+      fallbackTranscript,
+      "provider 返回了无法识别的语义规划结果",
+    );
+  }
+
+  const status = normalizePlanStatus(rawPlan.status);
+  const route = normalizePlanRoute(rawPlan.route, status);
+  const operations = Array.isArray(rawPlan.operations) ? rawPlan.operations : [];
+  const operationPreview = Array.isArray(rawPlan.operationPreview)
+    ? rawPlan.operationPreview.filter((item): item is string => typeof item === "string")
+    : [];
+  const feedback = Array.isArray(rawPlan.feedback)
+    ? rawPlan.feedback.filter((item): item is string => typeof item === "string")
+    : [];
+
+  const normalizedTranscript =
+    typeof rawPlan.normalizedTranscript === "string"
+      ? rawPlan.normalizedTranscript
+      : fallbackTranscript;
+
+  return {
+    status,
+    route,
+    intent: normalizePlanIntent(rawPlan.intent, route),
+    confidence:
+      typeof rawPlan.confidence === "number" &&
+      Number.isFinite(rawPlan.confidence)
+        ? Math.max(0, Math.min(rawPlan.confidence, 1))
+        : status === "matched"
+          ? 0.7
+          : 0,
+    normalizedTranscript,
+    operations,
+    operationPreview,
+    feedback:
+      feedback.length > 0
+        ? feedback
+        : [createDefaultProviderFeedback(status, route, normalizedTranscript)],
+    clarification: normalizeClarification(rawPlan.clarification),
+  };
+}
+
+function normalizePlanStatus(value: unknown) {
+  if (
+    value === "matched" ||
+    value === "unsupported" ||
+    value === "needs_clarification"
+  ) {
+    return value;
+  }
+
+  return "unsupported";
+}
+
+function normalizePlanRoute(
+  value: unknown,
+  status: RawSemanticPlanResult["status"],
+): RawSemanticPlanResult["route"] {
+  if (
+    value === "structured_drawing" ||
+    value === "clarification" ||
+    value === "unsupported" ||
+    value === "ai_image_generation" ||
+    value === "image_editing"
+  ) {
+    return value;
+  }
+
+  return status === "needs_clarification" ? "clarification" : "unsupported";
+}
+
+function normalizePlanIntent(
+  value: unknown,
+  route: RawSemanticPlanResult["route"],
+): RawSemanticPlanResult["intent"] {
+  if (typeof value === "string") {
+    return value as RawSemanticPlanResult["intent"];
+  }
+
+  if (route === "clarification") {
+    return "clarify_command";
+  }
+
+  return "unknown";
+}
+
+function normalizeClarification(value: unknown) {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const reason = typeof value.reason === "string" ? value.reason : "needs_clarification";
+  const question =
+    typeof value.question === "string"
+      ? value.question
+      : "我需要更多信息才能安全执行这条指令。";
+  const suggestions = Array.isArray(value.suggestions)
+    ? value.suggestions.filter((item): item is string => typeof item === "string")
+    : [];
+
+  return {
+    reason,
+    question,
+    suggestions,
+  };
+}
+
+function createDefaultProviderFeedback(
+  status: RawSemanticPlanResult["status"],
+  route: RawSemanticPlanResult["route"],
+  normalizedTranscript: string,
+) {
+  if (status === "needs_clarification" || route === "clarification") {
+    return "需要澄清：这条语音指令还不足以安全执行";
+  }
+
+  if (status === "matched") {
+    return `已通过 LLM 语义规划理解为：${normalizedTranscript}`;
+  }
+
+  return "LLM 暂未给出可安全执行的结构化计划";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -203,6 +493,58 @@ function decodeRequestChunk(chunk: Uint8Array | string) {
 
 function getRuntimeFetch(): RuntimeFetch | undefined {
   return (globalThis as unknown as { fetch?: RuntimeFetch }).fetch;
+}
+
+async function readProviderErrorMessage(response: Awaited<ReturnType<RuntimeFetch>>) {
+  if (typeof response.text === "function") {
+    const text = await response.text();
+
+    return extractProviderErrorMessage(text);
+  }
+
+  try {
+    return extractProviderErrorMessage(JSON.stringify(await response.json()));
+  } catch {
+    return "";
+  }
+}
+
+function extractProviderErrorMessage(rawBody: string) {
+  if (!rawBody.trim()) {
+    return "";
+  }
+
+  try {
+    const payload = JSON.parse(rawBody) as unknown;
+
+    if (isRecord(payload) && isRecord(payload.error)) {
+      if (typeof payload.error.message === "string") {
+        return sanitizeProviderErrorMessage(payload.error.message).slice(0, 240);
+      }
+
+      if (typeof payload.error.code === "string") {
+        return sanitizeProviderErrorMessage(payload.error.code).slice(0, 240);
+      }
+    }
+  } catch {
+    return sanitizeProviderErrorMessage(rawBody).slice(0, 240);
+  }
+
+  return sanitizeProviderErrorMessage(rawBody).slice(0, 240);
+}
+
+export function sanitizeProviderErrorMessage(message: string) {
+  return message
+    .replace(/sk-[A-Za-z0-9_*.-]{6,}/g, "[redacted_api_key]")
+    .replace(/Bearer\s+[A-Za-z0-9_*.-]{8,}/gi, "Bearer [redacted_api_key]");
+}
+
+function getSafeErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message) {
+    return error.message.slice(0, 160);
+  }
+
+  return "unknown_error";
 }
 
 function getProcessCwd() {

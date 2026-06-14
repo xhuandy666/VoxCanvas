@@ -14,7 +14,7 @@ export function CommandTracePanel({ state }: CommandTracePanelProps) {
 
       <div className="trace-block">
         <h3>Recognized text</h3>
-        <p>{state.transcript}</p>
+        <p>{state.recognizedText ?? state.transcript}</p>
       </div>
 
       <div className="trace-block">
