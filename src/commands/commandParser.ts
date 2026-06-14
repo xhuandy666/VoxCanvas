@@ -57,6 +57,11 @@ type CommandPosition = {
   y: number;
 };
 
+type ShapeMatch = {
+  kind: DrawingShapeKind;
+  corrected?: boolean;
+};
+
 const DEFAULT_POSITION = {
   label: "center",
   x: CANVAS_WORLD_CENTER_X,
@@ -203,10 +208,10 @@ export function parseCommand(
     return createObjectReferenceResult(normalizedTranscript, options);
   }
 
-  const shapeKind = findShapeKind(normalizedTranscript);
+  const shapeMatch = findShapeMatch(normalizedTranscript);
 
-  if (shapeKind) {
-    return createShapeResult(shapeKind, normalizedTranscript, options);
+  if (shapeMatch) {
+    return createShapeResult(shapeMatch, normalizedTranscript, options);
   }
 
   return {
@@ -240,10 +245,11 @@ function createTemplateResult(
 }
 
 function createShapeResult(
-  kind: DrawingShapeKind,
+  shapeMatch: ShapeMatch,
   transcript: string,
   options: ParseCommandOptions,
 ): CommandParseResult {
+  const kind = shapeMatch.kind;
   const color = findColor(transcript);
   const position = findPosition(transcript);
   const count = findShapeCount(transcript);
@@ -258,7 +264,7 @@ function createShapeResult(
     intent: "create_shape",
     operations,
     operationPreview,
-    feedback: [`已解析为创建${getShapeLabel(kind)}操作`],
+    feedback: createShapeFeedback(kind, shapeMatch),
     normalizedTranscript: transcript,
   };
 }
@@ -698,39 +704,67 @@ function getScaledShapePatch(shape: DrawingShape, scale: number) {
 }
 
 function findShapeKind(transcript: string): DrawingShapeKind | null {
+  return findShapeMatch(transcript)?.kind ?? null;
+}
+
+function findShapeMatch(transcript: string): ShapeMatch | null {
   if (/三角形|三角/.test(transcript)) {
-    return "triangle";
+    return { kind: "triangle" };
   }
 
   if (/菱形|钻石形/.test(transcript)) {
-    return "diamond";
+    return { kind: "diamond" };
   }
 
   if (/椭圆形|椭圆/.test(transcript)) {
-    return "ellipse";
+    return { kind: "ellipse" };
   }
 
   if (/圆形|圆/.test(transcript)) {
-    return "circle";
+    return { kind: "circle" };
+  }
+
+  if (isCircleHomophoneCommand(transcript)) {
+    return { kind: "circle", corrected: true };
   }
 
   if (/矩形|长方形|方形|正方形/.test(transcript)) {
-    return "rectangle";
+    return { kind: "rectangle" };
   }
 
   if (/箭头/.test(transcript)) {
-    return "arrow";
+    return { kind: "arrow" };
   }
 
   if (/线条|直线|线/.test(transcript)) {
-    return "line";
+    return { kind: "line" };
   }
 
   if (/文字|文本/.test(transcript)) {
-    return "text";
+    return { kind: "text" };
   }
 
   return null;
+}
+
+function isCircleHomophoneCommand(transcript: string) {
+  if (/花园|公园|园林|校园|幼儿园/.test(transcript)) {
+    return false;
+  }
+
+  return /(?:画|创建|添加|来个|来一个|做个|做一个|摆放).{0,10}园(?:形)?/.test(
+    transcript,
+  );
+}
+
+function createShapeFeedback(kind: DrawingShapeKind, shapeMatch: ShapeMatch) {
+  const feedback = [`已解析为创建${getShapeLabel(kind)}操作`];
+
+  if (shapeMatch.corrected && kind === "circle") {
+    feedback.unshift("已将“园”理解为圆形");
+  }
+
+  return feedback;
 }
 
 function findColor(transcript: string) {

@@ -43,6 +43,8 @@ import { createRemoteImageGenerationClient } from "./images/imageGenerationClien
 import { useBrowserSpeech } from "./speech/useBrowserSpeech";
 import type { RemoteImageGenerationResult } from "./images/imageGenerationClient";
 
+const COMMAND_TRACE_VISIBLE_MS = 3000;
+
 type DrawingSession = {
   commandTraceState: CommandTraceState;
   historyState: HistoryState<CanvasState>;
@@ -233,6 +235,35 @@ export default function App() {
     completeQueuedImageGeneration,
   ]);
 
+  useEffect(() => {
+    const commandTraceState = drawingSession.commandTraceState;
+
+    if (!shouldAutoClearCommandTrace(commandTraceState)) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setDrawingSession((currentSession) => {
+        if (currentSession.commandTraceState !== commandTraceState) {
+          return currentSession;
+        }
+
+        const nextSession = {
+          ...currentSession,
+          commandTraceState: createCommandTraceState(""),
+        };
+
+        drawingSessionRef.current = nextSession;
+
+        return nextSession;
+      });
+    }, COMMAND_TRACE_VISIBLE_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [drawingSession.commandTraceState]);
+
   const canvasState = drawingSession.historyState.present;
 
   const appState = {
@@ -274,6 +305,15 @@ function createVoiceShapeId(kind: string, batchNumber: number, index = 0) {
   const baseId = `voice-${kind}-${batchNumber}`;
 
   return index === 0 ? baseId : `${baseId}-${index + 1}`;
+}
+
+function shouldAutoClearCommandTrace(commandTraceState: CommandTraceState) {
+  return (
+    commandTraceState.recognizedText.trim().length > 0 ||
+    commandTraceState.parsedIntent !== "unknown" ||
+    commandTraceState.operationPreview.some((entry) => entry !== "no operation preview") ||
+    commandTraceState.feedbackLog.some((entry) => entry !== "等待语音输入")
+  );
 }
 
 function applySemanticPlanToSession(

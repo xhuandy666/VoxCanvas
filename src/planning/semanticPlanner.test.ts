@@ -272,14 +272,14 @@ describe("createSemanticPlan", () => {
     });
   });
 
-  it("uses an async LLM planner to normalize speech-recognition errors", async () => {
-    const plan = await createSemanticPlanAsync("画一个园", {
+  it("uses an async LLM planner to normalize open speech-recognition errors", async () => {
+    const plan = await createSemanticPlanAsync("画一个蓝色原形", {
       semanticPlanner: async () => ({
         status: "matched",
         route: "structured_drawing",
         intent: "create_shape",
         confidence: 0.91,
-        normalizedTranscript: "画一个圆形",
+        normalizedTranscript: "画一个蓝色圆形",
         operations: [
           {
             type: "create_shape",
@@ -300,7 +300,7 @@ describe("createSemanticPlan", () => {
           },
         ],
         operationPreview: ["add shape: circle, color: blue"],
-        feedback: ["已将“园”理解为圆形"],
+        feedback: ["已将“原形”理解为圆形"],
       }),
       semanticPlannerSource: "llm_semantic_planner",
     });
@@ -310,8 +310,8 @@ describe("createSemanticPlan", () => {
       route: "structured_drawing",
       intent: "create_shape",
       source: "llm_semantic_planner",
-      normalizedTranscript: "画一个圆形",
-      feedback: ["已将“园”理解为圆形"],
+      normalizedTranscript: "画一个蓝色圆形",
+      feedback: ["已将“原形”理解为圆形"],
     });
     expect(plan.operations).toHaveLength(1);
   });

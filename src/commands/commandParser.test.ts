@@ -71,6 +71,32 @@ describe("parseCommand", () => {
     expect(result.operationPreview).toEqual(["add shape: circle, color: blue"]);
   });
 
+  it("corrects common speech homophone 园 to circle on the local fast path", () => {
+    const result = parseCommand("画一个蓝色的园", {
+      createShapeId: () => "shape-circle-1",
+    });
+
+    expect(result.status).toBe("matched");
+    expect(result.intent).toBe("create_shape");
+    expect(result.operations).toMatchObject([
+      {
+        type: "create_shape",
+        shape: {
+          id: "shape-circle-1",
+          kind: "circle",
+          style: {
+            fill: "#2563eb",
+            stroke: "#1d4ed8",
+          },
+        },
+      },
+    ]);
+    expect(result.feedback).toEqual([
+      "已将“园”理解为圆形",
+      "已解析为创建圆形操作",
+    ]);
+  });
+
   it("expands simple numbered shape creation commands", () => {
     const result = parseCommand("画两个圆", {
       createShapeId: (kind, _transcript, index = 0) => `shape-${kind}-${index + 1}`,
