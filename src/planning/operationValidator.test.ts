@@ -111,6 +111,182 @@ describe("validateDrawingOperations", () => {
     expect(result.errors).toEqual([]);
   });
 
+  it("accepts managed generated image layer operations", () => {
+    const createOperation = {
+      type: "create_image_layer",
+      layer: {
+        id: "image-layer-1",
+        prompt: "画一只蓝色的鸟",
+        status: "pending",
+        x: 170,
+        y: 90,
+        width: 620,
+        height: 420,
+        opacity: 1,
+        createdAt: "2026-06-14T00:00:00.000Z",
+        updatedAt: "2026-06-14T00:00:00.000Z",
+      },
+    };
+    const updateOperation = {
+      type: "update_image_layer",
+      layerId: "image-layer-1",
+      patch: {
+        status: "succeeded",
+        imageUrl: "https://example.com/generated-bird.png",
+        model: "gpt-image-2",
+        updatedAt: "2026-06-14T00:01:00.000Z",
+      },
+    };
+
+    const result = validateDrawingOperations(
+      [createOperation, updateOperation],
+      createEmptyCanvasState(),
+    );
+
+    expect(result.valid).toBe(true);
+    expect(result.operations).toEqual([createOperation, updateOperation]);
+    expect(result.errors).toEqual([]);
+  });
+
+  it("rejects succeeded generated image layers without an image URL", () => {
+    const result = validateDrawingOperations(
+      [
+        {
+          type: "create_image_layer",
+          layer: {
+            id: "image-layer-1",
+            prompt: "画一只蓝色的鸟",
+            status: "succeeded",
+            x: 170,
+            y: 90,
+            width: 620,
+            height: 420,
+            opacity: 1,
+            createdAt: "2026-06-14T00:00:00.000Z",
+            updatedAt: "2026-06-14T00:00:00.000Z",
+          },
+        },
+      ],
+      createEmptyCanvasState(),
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.operations).toEqual([]);
+    expect(result.errors).toEqual([
+      {
+        index: 0,
+        reason: "成功图片图层必须包含图片 URL",
+      },
+    ]);
+  });
+
+  it("rejects image layer updates that target missing layers", () => {
+    const result = validateDrawingOperations(
+      [
+        {
+          type: "update_image_layer",
+          layerId: "missing-image-layer",
+          patch: {
+            status: "failed",
+            errorMessage: "生成服务暂不可用",
+          },
+        },
+      ],
+      createEmptyCanvasState(),
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.operations).toEqual([]);
+    expect(result.errors).toEqual([
+      {
+        index: 0,
+        reason: "目标图片图层不存在",
+      },
+    ]);
+  });
+
+  it("rejects succeeded generated image layer updates without an image URL", () => {
+    const withPendingLayer = applyDrawingOperation(createEmptyCanvasState(), {
+      type: "create_image_layer",
+      layer: {
+        id: "image-layer-1",
+        prompt: "画一只蓝色的鸟",
+        status: "pending",
+        x: 170,
+        y: 90,
+        width: 620,
+        height: 420,
+        opacity: 1,
+        createdAt: "2026-06-14T00:00:00.000Z",
+        updatedAt: "2026-06-14T00:00:00.000Z",
+      },
+    });
+
+    const result = validateDrawingOperations(
+      [
+        {
+          type: "update_image_layer",
+          layerId: "image-layer-1",
+          patch: {
+            status: "succeeded",
+            updatedAt: "2026-06-14T00:01:00.000Z",
+          },
+        },
+      ],
+      withPendingLayer,
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.operations).toEqual([]);
+    expect(result.errors).toEqual([
+      {
+        index: 0,
+        reason: "成功图片图层必须包含图片 URL",
+      },
+    ]);
+  });
+
+  it("rejects image layer patches that try to change identity fields", () => {
+    const withPendingLayer = applyDrawingOperation(createEmptyCanvasState(), {
+      type: "create_image_layer",
+      layer: {
+        id: "image-layer-1",
+        prompt: "画一只蓝色的鸟",
+        status: "pending",
+        x: 170,
+        y: 90,
+        width: 620,
+        height: 420,
+        opacity: 1,
+        createdAt: "2026-06-14T00:00:00.000Z",
+        updatedAt: "2026-06-14T00:00:00.000Z",
+      },
+    });
+
+    const result = validateDrawingOperations(
+      [
+        {
+          type: "update_image_layer",
+          layerId: "image-layer-1",
+          patch: {
+            id: "image-layer-forged",
+            updatedAt: "2026-06-14T00:01:00.000Z",
+          },
+        },
+      ],
+      withPendingLayer,
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.operations).toEqual([]);
+    expect(result.errors).toEqual([
+      {
+        index: 0,
+        reason: "图片图层更新不能修改 ID 或创建时间",
+      },
+    ]);
+  });
+
   it("rejects unknown operation types", () => {
     const result = validateDrawingOperations(
       [

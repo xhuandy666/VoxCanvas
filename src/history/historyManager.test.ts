@@ -27,6 +27,24 @@ function createCanvasWithRectangle(id = "shape-1") {
   });
 }
 
+function createCanvasWithGeneratedImageLayer() {
+  return applyDrawingOperation(createEmptyCanvasState(), {
+    type: "create_image_layer",
+    layer: {
+      id: "image-layer-1",
+      prompt: "画一只蓝色的鸟",
+      status: "pending",
+      x: 170,
+      y: 90,
+      width: 620,
+      height: 420,
+      opacity: 1,
+      createdAt: "2026-06-14T00:00:00.000Z",
+      updatedAt: "2026-06-14T00:00:00.000Z",
+    },
+  });
+}
+
 describe("historyManager", () => {
   it("creates history around the current canvas state", () => {
     const present = createEmptyCanvasState();
@@ -68,6 +86,24 @@ describe("historyManager", () => {
     expect(redone.present).toBe(withRectangle);
     expect(redone.past).toEqual([empty]);
     expect(redone.future).toEqual([]);
+  });
+
+  it("undoes and redoes generated image layer states", () => {
+    const empty = createEmptyCanvasState();
+    const withImageLayer = createCanvasWithGeneratedImageLayer();
+    const committed = commitHistoryState(createHistoryState(empty), withImageLayer);
+    const undone = undoHistoryState(committed);
+    const redone = redoHistoryState(undone);
+
+    expect(undone.present.imageLayers).toEqual([]);
+    expect(undone.present.version).toBe(0);
+    expect(redone.present.imageLayers).toHaveLength(1);
+    expect(redone.present.imageLayers[0]).toMatchObject({
+      id: "image-layer-1",
+      status: "pending",
+      prompt: "画一只蓝色的鸟",
+    });
+    expect(redone.present.selectedImageLayerId).toBe("image-layer-1");
   });
 
   it("clears redo states when committing after an undo", () => {

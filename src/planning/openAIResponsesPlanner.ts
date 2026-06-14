@@ -51,6 +51,9 @@ const semanticPlanJsonSchema = {
       enum: [
         "create_shape",
         "create_template",
+        "create_image_layer",
+        "update_image_layer",
+        "delete_image_layer",
         "update_shape",
         "move_shape",
         "delete_shape",
@@ -131,6 +134,7 @@ export function createOpenAIResponsesRequestBody({
               "简单结构化绘图只能输出合法 DrawingOperation 候选，后续会经过 OperationValidator。",
               "当前支持的 shape.kind 包括 circle、rectangle、line、arrow、text、triangle、diamond、ellipse。",
               "房子草图和流程图可以使用 create_template intent 表达模板意图，operations 仍必须展开为合法 DrawingOperation。",
+              "AI 生图与语音改图路线当前只做任务路由，不要在语义规划里伪造图片 URL。",
               "如果用户意图模糊或目标对象不存在，使用 needs_clarification。",
               "如果用户请求复杂视觉对象或风格化画面，route 使用 ai_image_generation，operations 为空。",
               "如果用户请求基于旧生成图的风格或内容修改，route 使用 image_editing，operations 为空。",
@@ -195,6 +199,8 @@ function summarizeCanvasState(canvasState: CanvasState) {
   return {
     selectedShapeId: canvasState.selectedShapeId,
     lastShapeId: canvasState.lastShapeId,
+    selectedImageLayerId: canvasState.selectedImageLayerId,
+    lastImageLayerId: canvasState.lastImageLayerId,
     version: canvasState.version,
     shapes: canvasState.shapes.map((shape) => ({
       id: shape.id,
@@ -205,6 +211,19 @@ function summarizeCanvasState(canvasState: CanvasState) {
       height: shape.height,
       text: shape.text,
       style: shape.style,
+    })),
+    imageLayers: canvasState.imageLayers.map((layer) => ({
+      id: layer.id,
+      prompt: layer.prompt,
+      status: layer.status,
+      x: layer.x,
+      y: layer.y,
+      width: layer.width,
+      height: layer.height,
+      imageUrl: layer.imageUrl,
+      model: layer.model,
+      revisedPrompt: layer.revisedPrompt,
+      errorMessage: layer.errorMessage,
     })),
   };
 }

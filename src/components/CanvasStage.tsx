@@ -11,7 +11,8 @@ export function CanvasStage({ state }: CanvasStageProps) {
       <div className="canvas-toolbar" aria-label="Canvas render status">
         <span>Canvas stage</span>
         <span>
-          {state.shapes.length} shapes / v{state.version}
+          {state.shapes.length} shapes / {state.imageLayers.length} image layers / v
+          {state.version}
         </span>
       </div>
 

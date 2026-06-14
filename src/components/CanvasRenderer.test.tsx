@@ -115,7 +115,49 @@ const canvasState: CanvasState = {
       },
     },
   ],
+  imageLayers: [
+    {
+      id: "image-layer-pending",
+      prompt: "画一只蓝色的鸟",
+      status: "pending",
+      x: 80,
+      y: 40,
+      width: 260,
+      height: 180,
+      opacity: 0.9,
+      createdAt: "2026-06-14T00:00:00.000Z",
+      updatedAt: "2026-06-14T00:00:00.000Z",
+    },
+    {
+      id: "image-layer-succeeded",
+      prompt: "画一个水彩风格森林",
+      status: "succeeded",
+      imageUrl: "https://example.com/forest.png",
+      x: 360,
+      y: 40,
+      width: 260,
+      height: 180,
+      opacity: 1,
+      createdAt: "2026-06-14T00:00:00.000Z",
+      updatedAt: "2026-06-14T00:01:00.000Z",
+    },
+    {
+      id: "image-layer-failed",
+      prompt: "画一座未来城市",
+      status: "failed",
+      errorMessage: "生成服务暂不可用",
+      x: 640,
+      y: 40,
+      width: 240,
+      height: 180,
+      opacity: 1,
+      createdAt: "2026-06-14T00:00:00.000Z",
+      updatedAt: "2026-06-14T00:01:00.000Z",
+    },
+  ],
+  selectedImageLayerId: "image-layer-pending",
   selectedShapeId: "rect-1",
+  lastImageLayerId: "image-layer-succeeded",
   lastShapeId: "text-1",
   version: 8,
 };
@@ -124,7 +166,15 @@ describe("CanvasRenderer", () => {
   it("renders an accessible empty canvas when there are no shapes", () => {
     render(
       <CanvasRenderer
-        state={{ shapes: [], selectedShapeId: null, lastShapeId: null, version: 0 }}
+        state={{
+          imageLayers: [],
+          shapes: [],
+          selectedImageLayerId: null,
+          selectedShapeId: null,
+          lastImageLayerId: null,
+          lastShapeId: null,
+          version: 0,
+        }}
       />,
     );
 
@@ -194,5 +244,30 @@ describe("CanvasRenderer", () => {
       "data-selected",
       "false",
     );
+  });
+
+  it("renders generated image layers with pending, succeeded, and failed states", () => {
+    render(<CanvasRenderer state={canvasState} />);
+
+    const pendingLayer = screen.getByTestId("image-layer-image-layer-pending");
+    expect(pendingLayer).toHaveAttribute("data-status", "pending");
+    expect(pendingLayer).toHaveAttribute("data-selected", "true");
+    expect(screen.getByText("Generating image...")).toBeInTheDocument();
+    expect(screen.getByText("画一只蓝色的鸟")).toBeInTheDocument();
+
+    const succeededImage = screen
+      .getByTestId("image-layer-image-layer-succeeded")
+      .querySelector("image");
+    expect(succeededImage).toHaveAttribute(
+      "href",
+      "https://example.com/forest.png",
+    );
+    expect(succeededImage).toHaveAttribute("x", "360");
+    expect(succeededImage).toHaveAttribute("width", "260");
+
+    const failedLayer = screen.getByTestId("image-layer-image-layer-failed");
+    expect(failedLayer).toHaveAttribute("data-status", "failed");
+    expect(screen.getByText("Image generation failed")).toBeInTheDocument();
+    expect(screen.getByText("生成服务暂不可用")).toBeInTheDocument();
   });
 });

@@ -1,6 +1,7 @@
 import type { CanvasState } from "../drawing/drawingState";
 
 export const demoCanvasState: CanvasState = {
+  imageLayers: [],
   shapes: [
     {
       id: "demo-circle",
@@ -70,7 +71,9 @@ export const demoCanvasState: CanvasState = {
       },
     },
   ],
+  selectedImageLayerId: null,
   selectedShapeId: "demo-rectangle",
+  lastImageLayerId: null,
   lastShapeId: "demo-text",
   version: 1,
 };
