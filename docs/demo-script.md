@@ -15,7 +15,7 @@
 1. 使用支持 `SpeechRecognition` / `webkitSpeechRecognition` 的浏览器，推荐 Chrome。
 2. 确认浏览器已允许麦克风权限，语音识别语言为 `zh-CN`。
 3. 本地运行 `pnpm dev`，打开 Vite dev server 页面。
-4. 如果演示 LLM 容错，确认 `.env` 已配置 `VOXCANVAS_LLM_PROVIDER`、对应 API key 和可用语义模型。
+4. 如果演示开放语义容错，确认 `.env` 已配置 `VOXCANVAS_LLM_PROVIDER`、对应 API key 和可用语义模型。高频同音误识别“园/圆”已走本地规则，不依赖 LLM。
 5. 如果演示 AI 生图和语音改图，确认 `.env` 已配置 `DASHSCOPE_API_KEY`、`VOXCANVAS_IMAGE_MODEL=wan2.7-image-pro` 和合适的 `VOXCANVAS_IMAGE_SIZE`。
 6. 修改 `.env` 后重启 dev server。
 7. 录制前刷新页面，确保画布为空，Command trace 没有旧失败信息。
@@ -274,27 +274,27 @@ API key 只保存在本地环境变量和 Vite 代理中，不会进入前端代
 旧图仍然保留在历史里，用户可以继续撤销或重新描述修改目标。
 ```
 
-### 3.7 语义容错可选片段
+### 3.7 高频语音纠错片段
 
-如果 LLM provider 在录制环境稳定，可以加入这一段。若网络或模型服务不稳定，可以跳过，不影响主链路展示。
+这一段用于展示演示高频语音误识别的稳定处理，不依赖远程 LLM。
 
 语音指令：
 
 ```text
-画一个园
+画一个蓝色的园
 ```
 
 预期结果：
 
-- 如果语义模型可用，系统将同音错字“园”归一为“圆形”，并创建圆形。
-- 如果语义模型不可用，Command trace 会展示安全失败状态，画布不被错误修改。
+- 系统将同音误识别“园”归一为“圆形”，并创建蓝色圆形。
+- Command trace 显示“已将‘园’理解为圆形”和创建圆形操作。
 
 旁白：
 
 ```text
-这里展示语义容错。规则解析器不强行猜测所有同音错字，规则无法覆盖时会进入 LLM Semantic Planner。
-模型输出也不能直接修改画布，必须先转成结构化计划，再经过 OperationValidator 校验。
-如果模型服务不可用，系统会保留失败诊断并保持画布安全。
+这里展示语音识别误差处理。真实录制中，浏览器经常会把“圆”识别成“园”。
+为了保证 Demo 主链路稳定，VoxCanvas 对这种高频、安全的同音误识别做了本地规则归一，不需要等待远程模型。
+更开放的自然语言容错仍然可以进入 LLM Semantic Planner，并且模型输出必须经过结构化计划和 OperationValidator 校验。
 ```
 
 ### 3.8 收尾总结

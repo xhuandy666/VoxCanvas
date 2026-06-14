@@ -16,6 +16,7 @@ class FakeSpeechRecognition implements SpeechRecognitionLike {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
@@ -99,6 +100,78 @@ describe("App", () => {
     );
     expect(screen.getByText("1 shapes / 0 image layers / v1")).toBeInTheDocument();
     expect(screen.getByText("已解析为创建矩形操作")).toBeInTheDocument();
+  });
+
+  it("clears the command trace three seconds after showing the last operation", async () => {
+    vi.useFakeTimers();
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /simulate transcript/i }), {
+      target: {
+        value: "画一个蓝色圆形",
+      },
+    });
+
+    expect(screen.getByText("画一个蓝色圆形")).toBeInTheDocument();
+    expect(screen.getByText("create_shape")).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(2999);
+    });
+
+    expect(screen.getByText("画一个蓝色圆形")).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+
+    expect(screen.queryByText("画一个蓝色圆形")).not.toBeInTheDocument();
+    expect(screen.getByText("unknown")).toBeInTheDocument();
+    expect(screen.getByText("no operation preview")).toBeInTheDocument();
+    expect(screen.getByText("等待语音输入")).toBeInTheDocument();
+
+    vi.useRealTimers();
+  });
+
+  it("keeps the newest command trace visible when another operation arrives before timeout", () => {
+    vi.useFakeTimers();
+    render(<App />);
+    const transcriptInput = screen.getByRole("textbox", {
+      name: /simulate transcript/i,
+    });
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "画一个蓝色圆形",
+      },
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "在左上角画一个红色矩形",
+      },
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(screen.queryByText("画一个蓝色圆形")).not.toBeInTheDocument();
+    expect(screen.getByText("在左上角画一个红色矩形")).toBeInTheDocument();
+    expect(screen.getByText("已解析为创建矩形操作")).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(screen.queryByText("在左上角画一个红色矩形")).not.toBeInTheDocument();
+    expect(screen.getByText("等待语音输入")).toBeInTheDocument();
+
+    vi.useRealTimers();
   });
 
   it("keeps same-kind shapes from separate transcripts", async () => {
@@ -460,7 +533,7 @@ describe("App", () => {
     expect(transcriptInput).toHaveValue("");
   });
 
-  it("executes an LLM semantic correction from the planning endpoint", async () => {
+  it("executes an open LLM semantic correction from the planning endpoint", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -470,7 +543,7 @@ describe("App", () => {
           route: "structured_drawing",
           intent: "create_shape",
           confidence: 0.91,
-          normalizedTranscript: "画一个圆形",
+          normalizedTranscript: "画一个蓝色圆形",
           operations: [
             {
               type: "create_shape",
@@ -491,7 +564,7 @@ describe("App", () => {
             },
           ],
           operationPreview: ["add shape: circle, color: blue"],
-          feedback: ["已将“园”理解为圆形"],
+          feedback: ["已将“原形”理解为圆形"],
         }),
       }),
     );
@@ -499,12 +572,31 @@ describe("App", () => {
 
     fireEvent.change(screen.getByRole("textbox", { name: /simulate transcript/i }), {
       target: {
-        value: "画一个园",
+        value: "画一个蓝色原形",
       },
     });
 
     expect(await screen.findByTestId("shape-llm-circle-1")).toBeInTheDocument();
+    expect(screen.getByText("已将“原形”理解为圆形")).toBeInTheDocument();
+  });
+
+  it("executes common 园 to circle correction without the remote planner", () => {
+    const fetchImpl = vi.fn();
+    vi.stubGlobal("fetch", fetchImpl);
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /simulate transcript/i }), {
+      target: {
+        value: "画一个蓝色的园",
+      },
+    });
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(screen.getByTestId("shape-voice-circle-1")).toBeInTheDocument();
+    expect(screen.getByText("create_shape")).toBeInTheDocument();
     expect(screen.getByText("已将“园”理解为圆形")).toBeInTheDocument();
+    expect(screen.getByText("已解析为创建圆形操作")).toBeInTheDocument();
+    expect(screen.queryByText("语义规划基础已就绪，但当前没有可安全执行的结构化计划")).not.toBeInTheDocument();
   });
 
   it("executes natural reset expressions on the local fast path", async () => {
