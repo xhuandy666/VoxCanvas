@@ -20,7 +20,6 @@
 - 项目开发文档：`docs/project-development-document.md`
 - 开发纪律与提交规范：`docs/development-discipline.md`
 - 迭代与 PR 计划：`docs/iteration-plan.md`
-- Demo 录制脚本：`docs/demo-script.md`
 - PR 描述模板：`.github/PULL_REQUEST_TEMPLATE.md`
 - 产品上下文：`PRODUCT.md`
 - PR-01 前端骨架设计摘要：见 `docs/project-development-document.md`
@@ -94,23 +93,13 @@ VOXCANVAS_IMAGE_SIZE=2K
 
 当前图片代理端点为本地同源 `/api/image-generation`，由 Vite dev server 读取 `DASHSCOPE_API_KEY` 并调用 DashScope，不会把 key 暴露给前端。图片生成或编辑失败时，画布中的图片图层会从 `pending` 更新为 `failed` 并展示脱敏失败原因；成功时会写入 `imageUrl` 并渲染真实图片。DashScope 返回的结果 URL 有有效期限制，当前 PR-17 先直接保存临时 URL 以完成 Demo 链路；正式持久化缓存和导出策略需要后续单独实现。
 
-当前 PR-19 已在 PR-18 大画布工作区基础上补充正式 Demo 脚本。脚本优先覆盖稳定的语音主链路：基础绘图、颜色和位置控制、对象编辑、连续语音输入重开、删除、撤销、重做、清空、数量指令、房子模板拆解、AI 生图、语音改图，以及“园/圆”这类本地高频语音纠错；同时提供开放 LLM 容错说明和模型服务不稳定时的备用录制路线。
+当前 PR-19 已在 PR-18 大画布工作区基础上完成 Demo readiness 加固。Demo 主线优先覆盖稳定的语音主链路：基础绘图、颜色和位置控制、对象编辑、连续语音输入重开、删除、撤销、重做、清空、数量指令、房子模板拆解、AI 生图、语音改图，以及“园/圆”这类本地高频语音纠错；同时保留开放 LLM 容错说明和模型服务不稳定时的备用录制路线。
 
-## Demo 录制
+## demo演示
 
-正式录制脚本见 [`docs/demo-script.md`](docs/demo-script.md)。
+Demo 视频展示了 VoxCanvas 的语音绘图主链路，包括基础图形创建、对象编辑、撤销重做、复杂结构化绘图，以及 AI 生图与语音改图能力。
 
-建议主线按以下能力顺序录制：
-
-1. 启动浏览器语音识别并授权麦克风。
-2. 通过语音绘制“画一个蓝色圆形”和“在左上角画一个红色矩形”。
-3. 展示对象编辑：“把刚才的圆变大”“往上一”“删除正方形”。
-4. 展示历史操作：“撤销”“重做”“重新来”。
-5. 展示复杂结构化绘图：“画两个圆”和“画一座房子，有红色屋顶、黄色墙体、两个窗户和一扇门”。
-6. 展示 AI 生图和语音改图：“画一只蓝色的鸟”“把这只鸟换成黑色”。
-7. 展示本地高频语音纠错：“画一个蓝色的园”。
-
-如录制当天模型服务或网络不稳定，可以保留结构化绘图主链路，并展示图片图层的 pending / failed 状态和 Command trace 中的脱敏失败原因。
+演示视频：[docs/assets/demo.mov](docs/assets/demo.mov)
 
 ## 提交材料目标
 
