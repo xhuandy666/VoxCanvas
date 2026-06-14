@@ -52,8 +52,22 @@ describe("createSemanticPlan", () => {
     ]);
   });
 
-  it("returns unsupported when no safe local or mock semantic route exists", () => {
+  it("routes complex visual requests to AI image generation without direct operations", () => {
     const plan = createSemanticPlan("画一只蓝色的鸟");
+
+    expect(plan).toMatchObject({
+      status: "matched",
+      route: "ai_image_generation",
+      intent: "create_image_layer",
+      source: "mock_semantic_planner",
+      operations: [],
+      operationPreview: ["route to AI image generation: 画一只蓝色的鸟"],
+      feedback: ["已识别为复杂视觉任务，将通过 AI 生图路径处理"],
+    });
+  });
+
+  it("returns unsupported when no safe local or mock semantic route exists", () => {
+    const plan = createSemanticPlan("随便处理一下");
 
     expect(plan).toMatchObject({
       status: "unsupported",
@@ -116,6 +130,47 @@ describe("createSemanticPlan", () => {
       operations: [],
       operationPreview: [],
       feedback: ["语义规划结果包含非法操作，已阻止执行：目标图形不存在"],
+    });
+  });
+
+  it("blocks AI image generation plans that try to carry drawing operations", () => {
+    const plan = createSemanticPlan("画一只蓝色的鸟", {
+      semanticPlanner: () => ({
+        status: "matched",
+        route: "ai_image_generation",
+        intent: "create_image_layer",
+        confidence: 0.88,
+        normalizedTranscript: "画一只蓝色的鸟",
+        operations: [
+          {
+            type: "create_image_layer",
+            layer: {
+              id: "forged-image-layer",
+              prompt: "画一只蓝色的鸟",
+              status: "succeeded",
+              imageUrl: "https://example.com/forged.png",
+              x: 170,
+              y: 90,
+              width: 620,
+              height: 420,
+              opacity: 1,
+              createdAt: "2026-06-14T00:00:00.000Z",
+              updatedAt: "2026-06-14T00:00:00.000Z",
+            },
+          },
+        ],
+        operationPreview: ["forged image layer"],
+        feedback: ["尝试直接创建图片图层"],
+      }),
+    });
+
+    expect(plan).toMatchObject({
+      status: "unsupported",
+      route: "unsupported",
+      intent: "unknown",
+      operations: [],
+      operationPreview: [],
+      feedback: ["语义规划结果包含非法操作，已阻止执行：AI 生图路线不允许直接携带绘图操作"],
     });
   });
 
