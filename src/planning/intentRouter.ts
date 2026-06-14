@@ -1,4 +1,8 @@
-import type { CanvasState, DrawingOperation } from "../drawing/drawingState";
+import type {
+  CanvasState,
+  DrawingOperation,
+  GeneratedImageLayer,
+} from "../drawing/drawingState";
 import {
   createMockImageGenerationService,
   type ImageGenerationService,
@@ -28,7 +32,10 @@ export function routeSemanticPlan(
     now = () => new Date().toISOString(),
   }: RouteIntentOptions,
 ): RoutedIntentResult {
-  if (plan.status !== "matched" || plan.route !== "ai_image_generation") {
+  if (
+    plan.status !== "matched" ||
+    (plan.route !== "ai_image_generation" && plan.route !== "image_editing")
+  ) {
     return {
       feedback: plan.feedback,
       operationPreview: plan.operationPreview,
@@ -37,12 +44,32 @@ export function routeSemanticPlan(
   }
 
   const prompt = plan.normalizedTranscript.trim();
-  const imageResult = imageGenerationService.queueTextToImage({
-    canvasState,
-    layerId: createImageLayerId(prompt),
-    now: now(),
-    prompt,
-  });
+  const timestamp = now();
+  const layerId = createImageLayerId(prompt);
+  const imageResult =
+    plan.route === "image_editing"
+      ? createImageEditingResult({
+          canvasState,
+          editInstruction: prompt,
+          imageGenerationService,
+          layerId,
+          now: timestamp,
+        })
+      : imageGenerationService.queueTextToImage({
+          canvasState,
+          layerId,
+          now: timestamp,
+          prompt,
+        });
+
+  if (!imageResult) {
+    return {
+      feedback: ["语音改图需要先有一张可修改的生成图片"],
+      operationPreview: [],
+      operations: [],
+    };
+  }
+
   const validation = validateDrawingOperations(imageResult.operations, canvasState);
 
   if (!validation.valid) {
@@ -71,4 +98,49 @@ function createDefaultImageLayerId(prompt: string) {
     .slice(0, 32);
 
   return `image-layer-${slug || "prompt"}`;
+}
+
+function createImageEditingResult({
+  canvasState,
+  editInstruction,
+  imageGenerationService,
+  layerId,
+  now,
+}: {
+  canvasState: CanvasState;
+  editInstruction: string;
+  imageGenerationService: ImageGenerationService;
+  layerId: string;
+  now: string;
+}) {
+  const sourceLayer = findEditableImageLayer(canvasState);
+
+  if (!sourceLayer) {
+    return null;
+  }
+
+  return imageGenerationService.queueImageEdit({
+    canvasState,
+    editInstruction,
+    layerId,
+    now,
+    sourceLayer,
+  });
+}
+
+function findEditableImageLayer(canvasState: CanvasState): GeneratedImageLayer | null {
+  return (
+    findImageLayerById(canvasState, canvasState.selectedImageLayerId) ??
+    findImageLayerById(canvasState, canvasState.lastImageLayerId) ??
+    canvasState.imageLayers[canvasState.imageLayers.length - 1] ??
+    null
+  );
+}
+
+function findImageLayerById(canvasState: CanvasState, layerId: string | null) {
+  if (!layerId) {
+    return null;
+  }
+
+  return canvasState.imageLayers.find((layer) => layer.id === layerId) ?? null;
 }

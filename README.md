@@ -15,7 +15,7 @@
 
 ## 当前阶段
 
-当前处于 PR-14 AI 生图路由阶段，已建立：
+当前处于 PR-15 语音改图 mock 路由阶段，已建立：
 
 - 项目开发文档：`docs/project-development-document.md`
 - 开发纪律与提交规范：`docs/development-discipline.md`
@@ -35,7 +35,7 @@
 - OpenAI Responses API 请求构造与本地语义规划代理：`src/planning/openAIResponsesPlanner.ts`、`/api/semantic-plan`
 - 结构化模板展开器：`src/commands/shapeTemplateExpander.ts`
 - 受管理图片图层模型与占位渲染：`GeneratedImageLayer`、`create_image_layer`、`update_image_layer`、`delete_image_layer`
-- AI 生图任务路由与 mock 生成服务：`src/planning/intentRouter.ts`、`src/images/imageGenerationService.ts`
+- AI 生图与语音改图任务路由、mock 生成/改图服务：`src/planning/intentRouter.ts`、`src/images/imageGenerationService.ts`
 
 PR-08 后的真实语音测试暴露出规则解析边界：浏览器可能把“圆”识别成“园”，用户也可能说“回到最初状态”“重新来”等未写入规则表的自然表达。后续路线调整为三层能力：基础结构化绘图继续走 `DrawingOperation`；LLM Semantic Planner 负责语义容错、自然表达归一和任务路由；AI 生图后期处理“鸟、人物、风格化场景”等复杂视觉任务，并允许用户继续用语音修改生成图。
 
@@ -47,7 +47,7 @@ MVP 优先采用浏览器语音识别能力完成端到端闭环：
 - `SpeechProvider`：统一语音识别接口。
 - `LocalSpeechProvider`：仅预留接口，后续有时间可接入 whisper.cpp、faster-whisper 或 Vosk。
 
-绘图能力采用 Web 前端实现，当前阶段使用 SVG 渲染圆、矩形、线条、箭头、文本、三角形、菱形、椭圆和受管理图片图层，并通过统一操作队列把基础指令解析结果应用到画布状态。画布状态接入历史管理和对象引用后，基础创建、对象移动、对象删除、对象变色、基础尺寸调整、清空、撤销和重做已经形成可验证闭环。结构化模板展开器已支持将“画一座房子”“画一个流程图”拆成多个合法 `create_shape` 操作。PR-14 已能将“画一只蓝色的鸟”等复杂视觉任务路由到 AI 生图路径，并用 mock 生成服务创建 pending 图片图层；真实图片生成服务和生图验收测试会在 PR15 完成后统一处理。
+绘图能力采用 Web 前端实现，当前阶段使用 SVG 渲染圆、矩形、线条、箭头、文本、三角形、菱形、椭圆和受管理图片图层，并通过统一操作队列把基础指令解析结果应用到画布状态。画布状态接入历史管理和对象引用后，基础创建、对象移动、对象删除、对象变色、基础尺寸调整、清空、撤销和重做已经形成可验证闭环。结构化模板展开器已支持将“画一座房子”“画一个流程图”拆成多个合法 `create_shape` 操作。PR-15 已能将“画一只蓝色的鸟”等复杂视觉任务路由到 AI 生图路径，并支持“把这只鸟换成红色”“换成水彩风格”等基于旧图的语音改图 mock 路由；两者都会创建 pending 图片图层并进入历史记录。
 
 后续 AI 能力采用“LLM 负责理解语义，规则和 schema 负责约束边界”的路线。简单、确定性的指令继续走本地规则解析；语音误识别、同义表达、模糊指令和复杂组合指令进入 LLM Semantic Planner；结构化绘图最终仍然只能执行合法 `DrawingOperation`。PR-10 主选 OpenAI Responses API 作为语义规划入口，默认模型通过 `VOXCANVAS_LLM_MODEL` 配置，API key 只允许放在本地环境变量或后端配置中，不进入前端代码。对于复杂视觉对象，系统可路由到 AI 生图路径，后续优先用 Responses API 的 `image_generation` 工具承接文生图和基于旧图的语音改图，生成受管理的图片图层并保留历史以支持撤销。
 
@@ -66,7 +66,7 @@ pnpm build
 
 如果需要启用 PR-10 的真实 LLM 语义容错，在本地复制 `.env.example` 为 `.env` 并填入自己的 `OPENAI_API_KEY`。仓库只提交 `.env.example`，不要提交 `.env`。
 
-当前 PR-14 已提供画布状态模型、SVG 渲染能力、`SpeechProvider` 抽象、浏览器语音识别入口、基础本地指令解析能力、操作队列执行能力、历史管理能力、对象引用能力、语义规划基础层、LLM Semantic Planner 接入、扩展绘图原语、结构化模板展开、受管理图片图层和 AI 生图任务路由。应用仍优先用规则解析简单指令；当规则无法安全执行时，会请求本地 `/api/semantic-plan` 代理，由 OpenAI Responses API 返回结构化语义计划，再通过 `OperationValidator` 阻止非法绘图操作进入队列。复杂视觉任务会进入 mock `ImageGenerationService` 并创建 pending 图片图层；真实 AI 生图服务和语音改图能力将在后续 PR 接入。
+当前 PR-15 已提供画布状态模型、SVG 渲染能力、`SpeechProvider` 抽象、浏览器语音识别入口、基础本地指令解析能力、操作队列执行能力、历史管理能力、对象引用能力、语义规划基础层、LLM Semantic Planner 接入、扩展绘图原语、结构化模板展开、受管理图片图层、AI 生图任务路由和语音改图 mock 路由。应用仍优先用规则解析简单指令；当规则无法安全执行时，会请求本地 `/api/semantic-plan` 代理，由 OpenAI Responses API 返回结构化语义计划，再通过 `OperationValidator` 阻止非法绘图操作进入队列。复杂视觉任务和基于旧图的语音改图会进入 mock `ImageGenerationService` 并创建 pending 图片图层；真实图片生成/编辑模型调用和图片缓存策略将在后续接入。
 
 ## 提交材料目标
 
@@ -78,4 +78,4 @@ pnpm build
 
 ## 依赖声明
 
-实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。PR-01 引入 Vite、React、TypeScript、Vitest 与 Testing Library，用于前端应用脚手架、类型检查和基础组件测试。同时引入 `@vitejs/plugin-react`、`jsdom`、`@testing-library/jest-dom` 与 React 类型包，用于 React 编译支持、测试 DOM 环境、测试断言扩展和 TypeScript 类型检查。PR-02、PR-03、PR-04、PR-05、PR-06、PR-07、PR-08 与 PR-09 未新增第三方依赖。PR-10 未新增 SDK 依赖，通过 Vite dev server 本地代理调用 OpenAI Responses API；默认语义模型配置为 `VOXCANVAS_LLM_MODEL=gpt-5.4-mini`，真实调用需要用户自行提供 `OPENAI_API_KEY`。PR-11、PR-12、PR-13 和 PR-14 未新增第三方依赖。当前未引入语音识别模型、图片生成模型 SDK 或模型权重。
+实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。PR-01 引入 Vite、React、TypeScript、Vitest 与 Testing Library，用于前端应用脚手架、类型检查和基础组件测试。同时引入 `@vitejs/plugin-react`、`jsdom`、`@testing-library/jest-dom` 与 React 类型包，用于 React 编译支持、测试 DOM 环境、测试断言扩展和 TypeScript 类型检查。PR-02、PR-03、PR-04、PR-05、PR-06、PR-07、PR-08 与 PR-09 未新增第三方依赖。PR-10 未新增 SDK 依赖，通过 Vite dev server 本地代理调用 OpenAI Responses API；默认语义模型配置为 `VOXCANVAS_LLM_MODEL=gpt-5.4-mini`，真实调用需要用户自行提供 `OPENAI_API_KEY`。PR-11、PR-12、PR-13、PR-14 和 PR-15 未新增第三方依赖。当前未引入语音识别模型、图片生成模型 SDK 或模型权重。
