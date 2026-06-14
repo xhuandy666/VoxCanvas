@@ -15,7 +15,7 @@
 
 ## 当前阶段
 
-当前处于 PR-16 演示前加固阶段，已建立：
+当前处于 PR-17 真实图片生成与编辑 API 接入阶段，已建立：
 
 - 项目开发文档：`docs/project-development-document.md`
 - 开发纪律与提交规范：`docs/development-discipline.md`
@@ -35,7 +35,7 @@
 - OpenAI Responses API / DashScope 兼容接口请求构造与本地语义规划代理：`src/planning/openAIResponsesPlanner.ts`、`src/planning/openAICompatibleChatPlanner.ts`、`/api/semantic-plan`
 - 结构化模板展开器：`src/commands/shapeTemplateExpander.ts`
 - 受管理图片图层模型与占位渲染：`GeneratedImageLayer`、`create_image_layer`、`update_image_layer`、`delete_image_layer`
-- AI 生图与语音改图任务路由、mock 生成/改图服务：`src/planning/intentRouter.ts`、`src/images/imageGenerationService.ts`
+- AI 生图与语音改图任务路由、受管理图片图层、真实 DashScope / 通义万相图片代理与失败回填：`src/planning/intentRouter.ts`、`src/images/imageGenerationService.ts`、`src/images/dashScopeImageGeneration.ts`、`src/images/imageGenerationClient.ts`、`/api/image-generation`
 
 PR-08 后的真实语音测试暴露出规则解析边界：浏览器可能把“圆”识别成“园”，用户也可能说“回到最初状态”“重新来”等未写入规则表的自然表达。后续路线调整为三层能力：基础结构化绘图继续走 `DrawingOperation`；LLM Semantic Planner 负责语义容错、自然表达归一和任务路由；AI 生图后期处理“鸟、人物、风格化场景”等复杂视觉任务，并允许用户继续用语音修改生成图。
 
@@ -47,9 +47,9 @@ MVP 优先采用浏览器语音识别能力完成端到端闭环：
 - `SpeechProvider`：统一语音识别接口。
 - `LocalSpeechProvider`：仅预留接口，后续有时间可接入 whisper.cpp、faster-whisper 或 Vosk。
 
-绘图能力采用 Web 前端实现，当前阶段使用 SVG 渲染圆、矩形、线条、箭头、文本、三角形、菱形、椭圆和受管理图片图层，并通过统一操作队列把基础指令解析结果应用到画布状态。画布状态接入历史管理和对象引用后，基础创建、对象移动、对象删除、对象变色、基础尺寸调整、清空、撤销和重做已经形成可验证闭环。结构化模板展开器已支持将“画一座房子”“画一个流程图”拆成多个合法 `create_shape` 操作。PR-15 已能将“画一只蓝色的鸟”等复杂视觉任务路由到 AI 生图路径，并支持“把这只鸟换成红色”“换成水彩风格”等基于旧图的语音改图 mock 路由；两者都会创建 pending 图片图层并进入历史记录。
+绘图能力采用 Web 前端实现，当前阶段使用 SVG 渲染圆、矩形、线条、箭头、文本、三角形、菱形、椭圆和受管理图片图层，并通过统一操作队列把基础指令解析结果应用到画布状态。画布状态接入历史管理和对象引用后，基础创建、对象移动、对象删除、对象变色、基础尺寸调整、清空、撤销和重做已经形成可验证闭环。结构化模板展开器已支持将“画一座房子”“画一个流程图”拆成多个合法 `create_shape` 操作。PR-17 已能将“画一只蓝色的鸟”等复杂视觉任务路由到 DashScope / 通义万相图片生成代理，并支持在旧图生成成功后继续说“把这只鸟换成红色”“换成水彩风格”等语音改图指令；两者都会先创建 pending 图片图层，再把真实图片 URL 或失败状态回填到同一个受管理图层。
 
-后续 AI 能力采用“LLM 负责理解语义，规则和 schema 负责约束边界”的路线。简单、确定性的指令继续走本地规则解析；语音误识别、同义表达、模糊指令和复杂组合指令进入 LLM Semantic Planner；结构化绘图最终仍然只能执行合法 `DrawingOperation`。PR-10 主选 OpenAI Responses API 作为语义规划入口；当前本地代理也支持切换到 DashScope OpenAI 兼容接口，例如使用 `qwen3.6-flash` 处理语义规划。默认模型通过 `VOXCANVAS_LLM_MODEL` 配置，API key 只允许放在本地环境变量或后端配置中，不进入前端代码。对于复杂视觉对象，系统可路由到 AI 生图路径；生图/改图服务保持在独立 `ImageGenerationService` 接口后，后续可按成本、效果和账号可用性选择 OpenAI 图像能力、Qwen Image 或通义万相等图像模型。
+后续 AI 能力采用“LLM 负责理解语义，规则和 schema 负责约束边界”的路线。简单、确定性的指令继续走本地规则解析；语音误识别、同义表达、模糊指令和复杂组合指令进入 LLM Semantic Planner；结构化绘图最终仍然只能执行合法 `DrawingOperation`。PR-10 主选 OpenAI Responses API 作为语义规划入口；当前本地代理也支持切换到 DashScope OpenAI 兼容接口，例如使用 `qwen3.6-flash` 处理语义规划。默认模型通过 `VOXCANVAS_LLM_MODEL` 配置，API key 只允许放在本地环境变量或后端配置中，不进入前端代码。对于复杂视觉对象，系统会路由到 AI 生图路径；PR-17 使用 DashScope / 通义万相 2.7 图像生成与编辑 HTTP 接口，默认图片模型为 `wan2.7-image-pro`，可通过 `VOXCANVAS_IMAGE_MODEL` 覆盖。官方图像接口模型名为 `wan2.7-image-pro` / `wan2.7-image`，不是 `wan2.7-videoedit`。
 
 ## 本地运行
 
@@ -84,7 +84,16 @@ VOXCANVAS_LLM_MODEL=qwen3.6-flash
 
 修改 `.env` 后需要重启 `pnpm dev`，否则 Vite 本地代理可能仍使用旧配置。若界面显示 `LLM 语义规划暂不可用`，Command trace 会展示脱敏后的失败原因：例如 HTTP 401 通常表示本地 provider API key 无效或当前账户不可用；模型不可用时可在 `.env` 中把 `VOXCANVAS_LLM_MODEL` 改成当前账户可访问的模型。
 
-当前 PR-16 已在 PR-15 语音改图 mock 路由基础上完成演示前加固：语音完成后会自动开启新输入，LLM 失败诊断会保留在 Command trace 中，本地代理支持 OpenAI Responses API 与 DashScope OpenAI 兼容接口，能够处理 `qwen3.6-flash` 返回的 fenced JSON；本地规则解析也支持“重新来”“往上一”“画两个圆”“删除正方形”等演示高频表达。应用仍优先用规则解析简单指令；当规则无法安全执行时，会请求本地 `/api/semantic-plan` 代理，由配置的语义模型 provider 返回结构化语义计划，再通过 `OperationValidator` 阻止非法绘图操作进入队列。复杂视觉任务和基于旧图的语音改图会进入 mock `ImageGenerationService` 并创建 pending 图片图层；真实图片生成/编辑模型调用和图片缓存策略将在后续接入。
+如果需要启用 PR-17 的真实 AI 生图与语音改图，继续使用同一个 `DASHSCOPE_API_KEY`，并配置图片模型：
+
+```bash
+VOXCANVAS_IMAGE_MODEL=wan2.7-image-pro
+VOXCANVAS_IMAGE_SIZE=2K
+```
+
+当前图片代理端点为本地同源 `/api/image-generation`，由 Vite dev server 读取 `DASHSCOPE_API_KEY` 并调用 DashScope，不会把 key 暴露给前端。图片生成或编辑失败时，画布中的图片图层会从 `pending` 更新为 `failed` 并展示脱敏失败原因；成功时会写入 `imageUrl` 并渲染真实图片。DashScope 返回的结果 URL 有有效期限制，当前 PR-17 先直接保存临时 URL 以完成 Demo 链路；正式持久化缓存和导出策略需要后续单独实现。
+
+当前 PR-17 已在 PR-16 演示前加固基础上接入真实图片生成/编辑代理：语音完成后会自动开启新输入，LLM 失败诊断会保留在 Command trace 中，本地代理支持 OpenAI Responses API 与 DashScope OpenAI 兼容接口，能够处理 `qwen3.6-flash` 返回的 fenced JSON；本地规则解析也支持“重新来”“往上一”“画两个圆”“删除正方形”等演示高频表达。应用仍优先用规则解析简单指令；当规则无法安全执行时，会请求本地 `/api/semantic-plan` 代理，由配置的语义模型 provider 返回结构化语义计划，再通过 `OperationValidator` 阻止非法绘图操作进入队列。复杂视觉任务和基于旧图的语音改图会进入受管理图片图层路径：先创建 pending 图层，再由 `/api/image-generation` 回填真实生成结果或失败状态。
 
 ## 提交材料目标
 
@@ -96,4 +105,4 @@ VOXCANVAS_LLM_MODEL=qwen3.6-flash
 
 ## 依赖声明
 
-实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。PR-01 引入 Vite、React、TypeScript、Vitest 与 Testing Library，用于前端应用脚手架、类型检查和基础组件测试。同时引入 `@vitejs/plugin-react`、`jsdom`、`@testing-library/jest-dom` 与 React 类型包，用于 React 编译支持、测试 DOM 环境、测试断言扩展和 TypeScript 类型检查。PR-02、PR-03、PR-04、PR-05、PR-06、PR-07、PR-08 与 PR-09 未新增第三方依赖。PR-10 未新增 SDK 依赖，通过 Vite dev server 本地代理调用 OpenAI Responses API；默认语义模型配置为 `VOXCANVAS_LLM_MODEL=gpt-5.4-mini`，真实调用需要用户自行提供 `OPENAI_API_KEY`。PR-16 未新增 SDK 依赖，但本地代理支持通过 DashScope OpenAI 兼容接口调用 `qwen3.6-flash`，真实调用需要用户自行提供 `DASHSCOPE_API_KEY`。PR-11、PR-12、PR-13、PR-14 和 PR-15 未新增第三方依赖。当前未引入语音识别模型、图片生成模型 SDK 或模型权重。
+实际开发中引用的第三方库、框架、模型或参考代码，必须在 README 与对应 PR 描述中说明。PR-01 引入 Vite、React、TypeScript、Vitest 与 Testing Library，用于前端应用脚手架、类型检查和基础组件测试。同时引入 `@vitejs/plugin-react`、`jsdom`、`@testing-library/jest-dom` 与 React 类型包，用于 React 编译支持、测试 DOM 环境、测试断言扩展和 TypeScript 类型检查。PR-02、PR-03、PR-04、PR-05、PR-06、PR-07、PR-08 与 PR-09 未新增第三方依赖。PR-10 未新增 SDK 依赖，通过 Vite dev server 本地代理调用 OpenAI Responses API；默认语义模型配置为 `VOXCANVAS_LLM_MODEL=gpt-5.4-mini`，真实调用需要用户自行提供 `OPENAI_API_KEY`。PR-16 未新增 SDK 依赖，但本地代理支持通过 DashScope OpenAI 兼容接口调用 `qwen3.6-flash`，真实调用需要用户自行提供 `DASHSCOPE_API_KEY`。PR-17 未新增 SDK 依赖，通过 Vite dev server 本地代理调用 DashScope / 通义万相 2.7 图像生成与编辑 HTTP 接口，默认图片模型为 `wan2.7-image-pro`，真实调用需要用户自行提供 `DASHSCOPE_API_KEY`。PR-11、PR-12、PR-13、PR-14 和 PR-15 未新增第三方依赖。当前未引入语音识别模型、图片生成模型 SDK 或模型权重。

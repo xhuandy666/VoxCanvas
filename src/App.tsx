@@ -9,7 +9,12 @@ import {
   type CommandTraceState,
 } from "./commands/commandTrace";
 import { mockAppState } from "./data/mockAppState";
-import { createEmptyCanvasState, type CanvasState } from "./drawing/drawingState";
+import {
+  applyDrawingOperation,
+  createEmptyCanvasState,
+  type CanvasState,
+  type UpdateImageLayerOperation,
+} from "./drawing/drawingState";
 import {
   canRedo,
   canUndo,
@@ -29,13 +34,19 @@ import {
   createSemanticPlanAsync,
   type SemanticPlanResult,
 } from "./planning/semanticPlanner";
-import { routeSemanticPlan } from "./planning/intentRouter";
+import {
+  routeSemanticPlan,
+  type QueuedImageGenerationRequest,
+} from "./planning/intentRouter";
 import { createRemoteSemanticPlanner } from "./planning/semanticPlannerClient";
+import { createRemoteImageGenerationClient } from "./images/imageGenerationClient";
 import { useBrowserSpeech } from "./speech/useBrowserSpeech";
+import type { RemoteImageGenerationResult } from "./images/imageGenerationClient";
 
 type DrawingSession = {
   commandTraceState: CommandTraceState;
   historyState: HistoryState<CanvasState>;
+  queuedImageRequest?: QueuedImageGenerationRequest;
   queueState: OperationQueueState;
 };
 
@@ -52,6 +63,7 @@ export default function App() {
     queueState: createOperationQueueState(),
   }));
   const drawingSessionRef = useRef<DrawingSession>(drawingSession);
+  const imageGenerationClientRef = useRef(createRemoteImageGenerationClient());
   drawingSessionRef.current = drawingSession;
 
   const handleUndo = useCallback(() => {
@@ -86,10 +98,39 @@ export default function App() {
       return {
         commandTraceState: currentSession.commandTraceState,
         historyState: commitHistoryState(currentSession.historyState, result.canvasState),
+        queuedImageRequest: undefined,
         queueState: result.queueState,
       };
     });
   }, []);
+
+  const completeQueuedImageGeneration = useCallback(
+    async (queuedImageRequest: QueuedImageGenerationRequest) => {
+      const result = await imageGenerationClientRef.current({
+        canvasState: drawingSessionRef.current.historyState.present,
+        editInstruction: queuedImageRequest.editInstruction,
+        layer: queuedImageRequest.layer,
+        mode: queuedImageRequest.mode,
+        sourceLayer: queuedImageRequest.sourceLayer,
+      });
+      const operation: UpdateImageLayerOperation = {
+        type: "update_image_layer",
+        layerId: queuedImageRequest.layer.id,
+        patch: createImageLayerCompletionPatch(result),
+      };
+
+      setDrawingSession((latestSession) => {
+        const nextSession = applyImageLayerCompletionToSession(
+          latestSession,
+          operation,
+        );
+        drawingSessionRef.current = nextSession;
+
+        return nextSession;
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!hasSkippedInitialTranscript.current) {
@@ -142,6 +183,9 @@ export default function App() {
     const nextSession = applySemanticPlanToSession(currentSession, semanticPlan, transcript);
     drawingSessionRef.current = nextSession;
     setDrawingSession(nextSession);
+    if (nextSession.queuedImageRequest) {
+      void completeQueuedImageGeneration(nextSession.queuedImageRequest);
+    }
 
     if (usesRemotePlanner) {
       void createSemanticPlanAsync(transcript, {
@@ -163,6 +207,10 @@ export default function App() {
           );
           drawingSessionRef.current = remoteSession;
 
+          if (remoteSession.queuedImageRequest) {
+            void completeQueuedImageGeneration(remoteSession.queuedImageRequest);
+          }
+
           return remoteSession;
         });
 
@@ -182,6 +230,7 @@ export default function App() {
   }, [
     browserSpeech.clearTranscript,
     browserSpeech.transcriptRevision,
+    completeQueuedImageGeneration,
   ]);
 
   const canvasState = drawingSession.historyState.present;
@@ -246,6 +295,7 @@ function applySemanticPlanToSession(
     return {
       ...currentSession,
       commandTraceState,
+      queuedImageRequest: undefined,
     };
   }
 
@@ -254,6 +304,7 @@ function applySemanticPlanToSession(
       ...currentSession,
       commandTraceState,
       historyState: undoHistoryState(currentSession.historyState),
+      queuedImageRequest: undefined,
     };
   }
 
@@ -262,6 +313,7 @@ function applySemanticPlanToSession(
       ...currentSession,
       commandTraceState,
       historyState: redoHistoryState(currentSession.historyState),
+      queuedImageRequest: undefined,
     };
   }
 
@@ -269,6 +321,7 @@ function applySemanticPlanToSession(
     return {
       ...currentSession,
       commandTraceState,
+      queuedImageRequest: undefined,
     };
   }
 
@@ -285,12 +338,57 @@ function applySemanticPlanToSession(
     return {
       ...currentSession,
       commandTraceState,
+      queuedImageRequest: undefined,
     };
   }
 
   return {
     commandTraceState,
     historyState: commitHistoryState(currentSession.historyState, result.canvasState),
+    queuedImageRequest: routedIntent.queuedImageRequest,
     queueState: result.queueState,
+  };
+}
+
+function applyImageLayerCompletionToSession(
+  session: DrawingSession,
+  operation: UpdateImageLayerOperation,
+): DrawingSession {
+  const updater = (state: CanvasState) => applyDrawingOperation(state, operation);
+
+  return {
+    ...session,
+    historyState: {
+      past: session.historyState.past.map(updater),
+      present: updater(session.historyState.present),
+      future: session.historyState.future.map(updater),
+    },
+    queuedImageRequest:
+      session.queuedImageRequest?.layer.id === operation.layerId
+        ? undefined
+        : session.queuedImageRequest,
+  };
+}
+
+function createImageLayerCompletionPatch(
+  result: RemoteImageGenerationResult,
+): UpdateImageLayerOperation["patch"] {
+  const updatedAt = new Date().toISOString();
+
+  if (result.status === "succeeded" && result.imageUrl) {
+    return {
+      status: "succeeded",
+      imageUrl: result.imageUrl,
+      model: result.model,
+      revisedPrompt: result.revisedPrompt,
+      errorMessage: undefined,
+      updatedAt,
+    };
+  }
+
+  return {
+    status: "failed",
+    errorMessage: result.errorMessage ?? "图片生成服务未返回可用结果",
+    updatedAt,
   };
 }

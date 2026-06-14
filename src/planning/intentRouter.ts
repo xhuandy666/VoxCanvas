@@ -12,8 +12,16 @@ import type { SemanticPlanResult } from "./semanticPlanner";
 
 export type RoutedIntentResult = {
   feedback: string[];
+  queuedImageRequest?: QueuedImageGenerationRequest;
   operationPreview: string[];
   operations: DrawingOperation[];
+};
+
+export type QueuedImageGenerationRequest = {
+  editInstruction?: string;
+  layer: GeneratedImageLayer;
+  mode: "image_editing" | "text_to_image";
+  sourceLayer?: GeneratedImageLayer;
 };
 
 export type RouteIntentOptions = {
@@ -46,7 +54,7 @@ export function routeSemanticPlan(
   const prompt = plan.normalizedTranscript.trim();
   const timestamp = now();
   const layerId = createImageLayerId(prompt);
-  const imageResult =
+  const imageRoutingResult =
     plan.route === "image_editing"
       ? createImageEditingResult({
           canvasState,
@@ -55,14 +63,18 @@ export function routeSemanticPlan(
           layerId,
           now: timestamp,
         })
-      : imageGenerationService.queueTextToImage({
-          canvasState,
-          layerId,
-          now: timestamp,
-          prompt,
-        });
+      : {
+          imageResult: imageGenerationService.queueTextToImage({
+            canvasState,
+            layerId,
+            now: timestamp,
+            prompt,
+          }),
+          mode: "text_to_image" as const,
+          sourceLayer: undefined,
+        };
 
-  if (!imageResult) {
+  if (!imageRoutingResult) {
     return {
       feedback: ["语音改图需要先有一张可修改的生成图片"],
       operationPreview: [],
@@ -70,7 +82,10 @@ export function routeSemanticPlan(
     };
   }
 
-  const validation = validateDrawingOperations(imageResult.operations, canvasState);
+  const validation = validateDrawingOperations(
+    imageRoutingResult.imageResult.operations,
+    canvasState,
+  );
 
   if (!validation.valid) {
     const reasons = [...new Set(validation.errors.map((error) => error.reason))];
@@ -83,8 +98,14 @@ export function routeSemanticPlan(
   }
 
   return {
-    feedback: [...plan.feedback, ...imageResult.feedback],
-    operationPreview: imageResult.operationPreview,
+    feedback: [...plan.feedback, ...imageRoutingResult.imageResult.feedback],
+    queuedImageRequest: createQueuedImageRequest({
+      editInstruction: plan.route === "image_editing" ? prompt : undefined,
+      mode: imageRoutingResult.mode,
+      operations: validation.operations,
+      sourceLayer: imageRoutingResult.sourceLayer,
+    }),
+    operationPreview: imageRoutingResult.imageResult.operationPreview,
     operations: validation.operations,
   };
 }
@@ -119,20 +140,24 @@ function createImageEditingResult({
     return null;
   }
 
-  return imageGenerationService.queueImageEdit({
-    canvasState,
-    editInstruction,
-    layerId,
-    now,
+  return {
+    imageResult: imageGenerationService.queueImageEdit({
+      canvasState,
+      editInstruction,
+      layerId,
+      now,
+      sourceLayer,
+    }),
+    mode: "image_editing" as const,
     sourceLayer,
-  });
+  };
 }
 
 function findEditableImageLayer(canvasState: CanvasState): GeneratedImageLayer | null {
   return (
     findImageLayerById(canvasState, canvasState.selectedImageLayerId) ??
     findImageLayerById(canvasState, canvasState.lastImageLayerId) ??
-    canvasState.imageLayers[canvasState.imageLayers.length - 1] ??
+    findLastEditableImageLayer(canvasState.imageLayers) ??
     null
   );
 }
@@ -142,5 +167,48 @@ function findImageLayerById(canvasState: CanvasState, layerId: string | null) {
     return null;
   }
 
-  return canvasState.imageLayers.find((layer) => layer.id === layerId) ?? null;
+  const layer = canvasState.imageLayers.find((item) => item.id === layerId) ?? null;
+
+  return layer && isLayerReadyForEditing(layer) ? layer : null;
+}
+
+function findLastEditableImageLayer(layers: GeneratedImageLayer[]) {
+  for (let index = layers.length - 1; index >= 0; index -= 1) {
+    if (isLayerReadyForEditing(layers[index])) {
+      return layers[index];
+    }
+  }
+
+  return null;
+}
+
+function isLayerReadyForEditing(layer: GeneratedImageLayer) {
+  return layer.status === "succeeded" && Boolean(layer.imageUrl);
+}
+
+function createQueuedImageRequest({
+  editInstruction,
+  mode,
+  operations,
+  sourceLayer,
+}: {
+  editInstruction?: string;
+  mode: QueuedImageGenerationRequest["mode"];
+  operations: DrawingOperation[];
+  sourceLayer?: GeneratedImageLayer;
+}) {
+  const layerOperation = operations.find(
+    (operation) => operation.type === "create_image_layer",
+  );
+
+  if (!layerOperation || layerOperation.type !== "create_image_layer") {
+    return undefined;
+  }
+
+  return {
+    editInstruction,
+    layer: layerOperation.layer,
+    mode,
+    sourceLayer,
+  };
 }
