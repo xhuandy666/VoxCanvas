@@ -27,8 +27,9 @@
 | PR-14 | `feat/ai-image-generation-route` | 将“画一只蓝色的鸟”等复杂视觉任务路由到 AI 生图路径 | mock 生成服务测试，手动验证生成中、成功、失败反馈 |
 | PR-15 | `feat/voice-image-editing` | 支持“把这只鸟换成红色”“换成水彩风格”等基于旧图的语音改图 | mock 图片编辑测试，验证旧图进入历史且新图覆盖当前图层 |
 | PR-16 | `fix/post-pr15-hardening` | 归并 PR-15 后真实测试暴露的问题：连续语音输入重开、LLM provider 兼容与错误诊断、数量创建和显式删除解析 | 全量回归测试、构建、固定语音样例手动验证 |
-| PR-17 | `docs/demo-readiness` | 完成 README、设计文档和 Demo 脚本 | 按 Demo 脚本完整跑通 |
-| PR-18 | `fix/polish-and-hardening` | 修复最终演示问题和体验细节 | 全量回归测试 |
+| PR-17 | `feat/real-image-generation-api` | 接入 DashScope / 通义万相真实图片生成与编辑代理，让 PR-14/PR-15 的图片图层从 mock 走向真实回填 | 单元测试覆盖请求体、响应解析、前端成功/失败回填；真实 API smoke test |
+| PR-18 | `docs/demo-readiness` | 完成 README、设计文档和 Demo 脚本 | 按 Demo 脚本完整跑通 |
+| PR-19 | `fix/polish-and-hardening` | 修复最终演示问题和体验细节 | 全量回归测试 |
 
 ## 3. PR 拆分原则
 

@@ -17,6 +17,7 @@ class FakeSpeechRecognition implements SpeechRecognitionLike {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 function stubBrowserSpeechRecognition(fakeRecognition = new FakeSpeechRecognition()) {
@@ -294,7 +295,18 @@ describe("App", () => {
     expect(screen.getByText("已展开房子草图模板")).toBeInTheDocument();
   });
 
-  it("routes complex visual transcripts into a pending generated image layer", async () => {
+  it("routes complex visual transcripts into a generated image layer and completes it", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: "succeeded",
+          imageUrl: "https://example.com/blue-bird.png",
+          model: "wan2.7-image-pro",
+        }),
+      }),
+    );
     render(<App />);
 
     fireEvent.change(screen.getByRole("textbox", { name: /simulate transcript/i }), {
@@ -305,9 +317,12 @@ describe("App", () => {
 
     const imageLayer = await screen.findByTestId("image-layer-voice-image-1");
 
-    expect(imageLayer).toHaveAttribute("data-status", "pending");
-    expect(screen.getByText("0 shapes / 1 image layers / v1")).toBeInTheDocument();
-    expect(screen.getByText("Generating image...")).toBeInTheDocument();
+    expect(await screen.findByText("0 shapes / 1 image layers / v2")).toBeInTheDocument();
+    expect(imageLayer).toHaveAttribute("data-status", "succeeded");
+    expect(imageLayer.querySelector("image")).toHaveAttribute(
+      "href",
+      "https://example.com/blue-bird.png",
+    );
     expect(screen.getAllByText("画一只蓝色的鸟").length).toBeGreaterThan(0);
     expect(screen.getByText("create_image_layer")).toBeInTheDocument();
     expect(
@@ -318,7 +333,54 @@ describe("App", () => {
     ).toBeInTheDocument();
   });
 
-  it("routes voice image edits into a new pending image layer and keeps undo history", async () => {
+  it("keeps generated image failures visible as failed image layers", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          status: "failed",
+          errorMessage: "模型暂时不可用",
+        }),
+      }),
+    );
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /simulate transcript/i }), {
+      target: {
+        value: "画一只蓝色的鸟",
+      },
+    });
+
+    const imageLayer = await screen.findByTestId("image-layer-voice-image-1");
+
+    expect(await screen.findByText("Image generation failed")).toBeInTheDocument();
+    expect(imageLayer).toHaveAttribute("data-status", "failed");
+    expect(screen.getByText("模型暂时不可用")).toBeInTheDocument();
+  });
+
+  it("routes voice image edits into a new generated image layer and keeps undo history", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            status: "succeeded",
+            imageUrl: "https://example.com/blue-bird.png",
+            model: "wan2.7-image-pro",
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            status: "succeeded",
+            imageUrl: "https://example.com/red-bird.png",
+            model: "wan2.7-image-pro",
+          }),
+        }),
+    );
     render(<App />);
     const transcriptInput = screen.getByRole("textbox", {
       name: /simulate transcript/i,
@@ -331,7 +393,7 @@ describe("App", () => {
     });
     expect(await screen.findByTestId("image-layer-voice-image-1")).toHaveAttribute(
       "data-status",
-      "pending",
+      "succeeded",
     );
 
     fireEvent.change(transcriptInput, {
@@ -340,11 +402,13 @@ describe("App", () => {
       },
     });
 
-    expect(await screen.findByTestId("image-layer-voice-image-2")).toHaveAttribute(
+    const editedLayer = await screen.findByTestId("image-layer-voice-image-2");
+
+    expect(editedLayer).toHaveAttribute(
       "data-status",
-      "pending",
+      "succeeded",
     );
-    expect(screen.getByText("0 shapes / 2 image layers / v2")).toBeInTheDocument();
+    expect(screen.getByText("0 shapes / 2 image layers / v4")).toBeInTheDocument();
     expect(screen.getByText("queue image edit: voice-image-1 -> voice-image-2")).toBeInTheDocument();
     expect(
       screen.getByText("已进入 AI 改图队列，基于上一张图片生成新图层"),
@@ -354,7 +418,7 @@ describe("App", () => {
 
     expect(screen.queryByTestId("image-layer-voice-image-2")).not.toBeInTheDocument();
     expect(screen.getByTestId("image-layer-voice-image-1")).toBeInTheDocument();
-    expect(screen.getByText("0 shapes / 1 image layers / v1")).toBeInTheDocument();
+    expect(screen.getByText("0 shapes / 1 image layers / v2")).toBeInTheDocument();
   });
 
   it("shows semantic clarification without changing the canvas", () => {

@@ -11,8 +11,16 @@ import {
   DASHSCOPE_SEMANTIC_PLANNER_MODEL,
   extractSemanticPlanFromOpenAICompatibleChatResponse,
 } from "./src/planning/openAICompatibleChatPlanner";
-import type { CanvasState } from "./src/drawing/drawingState";
+import type { CanvasState, GeneratedImageLayer } from "./src/drawing/drawingState";
 import type { RawSemanticPlanResult } from "./src/planning/semanticPlanner";
+import {
+  createDashScopeImageGenerationRequestBody,
+  DASHSCOPE_IMAGE_GENERATION_ENDPOINT,
+  DASHSCOPE_IMAGE_GENERATION_MODEL,
+  extractDashScopeImageGenerationResult,
+  sanitizeImageProviderErrorMessage,
+  type DashScopeImageGenerationResult,
+} from "./src/images/dashScopeImageGeneration";
 
 const OPENAI_RESPONSES_ENDPOINT = "https://api.openai.com/v1/responses";
 const DASHSCOPE_COMPATIBLE_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
@@ -23,7 +31,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, getProcessCwd(), "");
 
   return {
-    plugins: [react(), createSemanticPlanApiPlugin(env)],
+    plugins: [react(), createVoxCanvasApiPlugin(env)],
     test: {
       environment: "jsdom",
       globals: true,
@@ -37,6 +45,14 @@ type SemanticPlanApiPayload = {
   normalizedTranscript?: string;
   parserStatus?: string;
   transcript?: string;
+};
+
+type ImageGenerationApiPayload = {
+  canvasState?: CanvasState;
+  editInstruction?: string;
+  layer?: GeneratedImageLayer;
+  mode?: string;
+  sourceLayer?: GeneratedImageLayer;
 };
 
 type DevServerRequest = AsyncIterable<Uint8Array | string> & {
@@ -67,9 +83,9 @@ type RuntimeProcess = {
   cwd: () => string;
 };
 
-function createSemanticPlanApiPlugin(env: Record<string, string>): PluginOption {
+function createVoxCanvasApiPlugin(env: Record<string, string>): PluginOption {
   return {
-    name: "voxcanvas-semantic-plan-api",
+    name: "voxcanvas-local-api",
     configureServer(server) {
       server.middlewares.use("/api/semantic-plan", async (request, response) => {
         const apiRequest = request as DevServerRequest;
@@ -162,6 +178,83 @@ function createSemanticPlanApiPlugin(env: Record<string, string>): PluginOption 
               `本地代理请求失败：${getSafeErrorMessage(error)}`,
             ),
           );
+        }
+      });
+
+      server.middlewares.use("/api/image-generation", async (request, response) => {
+        const apiRequest = request as DevServerRequest;
+        const apiResponse = response as DevServerResponse;
+
+        if (apiRequest.method !== "POST") {
+          sendJson(apiResponse, 405, {
+            error: "method_not_allowed",
+          });
+          return;
+        }
+
+        const payload = await readImageGenerationPayload(apiRequest);
+        const validation = validateImageGenerationPayload(payload);
+
+        if (!validation.valid) {
+          sendImageGenerationJson(apiResponse, 400, {
+            status: "failed",
+            errorMessage: validation.reason,
+          });
+          return;
+        }
+
+        if (!env.DASHSCOPE_API_KEY) {
+          sendImageGenerationJson(apiResponse, 200, {
+            status: "failed",
+            errorMessage:
+              "未检测到 DASHSCOPE_API_KEY。请确认 .env 已配置，并重启 dev server",
+          });
+          return;
+        }
+
+        try {
+          const fetchImpl = getRuntimeFetch();
+
+          if (!fetchImpl) {
+            sendImageGenerationJson(apiResponse, 502, {
+              status: "failed",
+              errorMessage: "当前 Node 运行环境不支持 fetch",
+            });
+            return;
+          }
+
+          const providerResponse = await requestImageGenerationFromDashScope({
+            apiKey: env.DASHSCOPE_API_KEY,
+            env,
+            fetchImpl,
+            payload: validation.payload,
+          });
+
+          if (!providerResponse.ok) {
+            const errorMessage = await readProviderErrorMessage(providerResponse);
+
+            sendImageGenerationJson(apiResponse, 200, {
+              status: "failed",
+              errorMessage: `DashScope 图片模型返回 HTTP ${
+                providerResponse.status ?? "错误"
+              }${errorMessage ? `：${errorMessage}` : ""}`,
+            });
+            return;
+          }
+
+          sendImageGenerationJson(
+            apiResponse,
+            200,
+            extractDashScopeImageGenerationResult(
+              await providerResponse.json(),
+              getImageGenerationModel(env),
+            ),
+          );
+        } catch (error) {
+          sendImageGenerationJson(apiResponse, 200, {
+            status: "failed",
+            errorMessage: `本地图片代理请求失败：${getSafeErrorMessage(error)}`,
+          });
         }
       });
     },
@@ -265,6 +358,58 @@ function requestSemanticPlanFromProvider({
   });
 }
 
+type ValidImageGenerationPayload = {
+  editInstruction?: string;
+  layer: GeneratedImageLayer;
+  mode: "image_editing" | "text_to_image";
+  sourceLayer?: GeneratedImageLayer;
+};
+
+type ImageGenerationProviderRequest = {
+  apiKey: string;
+  env: Record<string, string>;
+  fetchImpl: RuntimeFetch;
+  payload: ValidImageGenerationPayload;
+};
+
+function requestImageGenerationFromDashScope({
+  apiKey,
+  env,
+  fetchImpl,
+  payload,
+}: ImageGenerationProviderRequest) {
+  return fetchImpl(getDashScopeImageGenerationEndpoint(env), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(
+      createDashScopeImageGenerationRequestBody({
+        imageUrl: payload.sourceLayer?.imageUrl,
+        instruction: payload.editInstruction,
+        mode: payload.mode,
+        model: getImageGenerationModel(env),
+        prompt: payload.layer.prompt,
+        size: env.VOXCANVAS_IMAGE_SIZE || "2K",
+        watermark: env.VOXCANVAS_IMAGE_WATERMARK === "true",
+      }),
+    ),
+  });
+}
+
+export function getDashScopeImageGenerationEndpoint(env: Record<string, string>) {
+  return (
+    env.VOXCANVAS_IMAGE_ENDPOINT ||
+    env.VOXCANVAS_DASHSCOPE_IMAGE_ENDPOINT ||
+    DASHSCOPE_IMAGE_GENERATION_ENDPOINT
+  );
+}
+
+export function getImageGenerationModel(env: Record<string, string>) {
+  return env.VOXCANVAS_IMAGE_MODEL || DASHSCOPE_IMAGE_GENERATION_MODEL;
+}
+
 function extractSemanticPlanFromProviderResponse(
   provider: SemanticPlanProvider,
   response: unknown,
@@ -296,10 +441,42 @@ async function readSemanticPlanPayload(
   return payload as SemanticPlanApiPayload;
 }
 
+async function readImageGenerationPayload(
+  request: DevServerRequest,
+): Promise<ImageGenerationApiPayload> {
+  let body = "";
+
+  for await (const chunk of request) {
+    body += decodeRequestChunk(chunk);
+  }
+
+  if (!body.trim()) {
+    return {};
+  }
+
+  const payload = JSON.parse(body) as unknown;
+
+  if (!isRecord(payload)) {
+    return {};
+  }
+
+  return payload as ImageGenerationApiPayload;
+}
+
 function sendJson(
   response: DevServerResponse,
   statusCode: number,
   payload: RawSemanticPlanResult | { error: string },
+) {
+  response.statusCode = statusCode;
+  response.setHeader("Content-Type", "application/json");
+  response.end(JSON.stringify(payload));
+}
+
+function sendImageGenerationJson(
+  response: DevServerResponse,
+  statusCode: number,
+  payload: DashScopeImageGenerationResult | { error: string },
 ) {
   response.statusCode = statusCode;
   response.setHeader("Content-Type", "application/json");
@@ -335,6 +512,64 @@ function createEmptyCanvasStateForApi(): CanvasState {
     lastImageLayerId: null,
     lastShapeId: null,
     version: 0,
+  };
+}
+
+function validateImageGenerationPayload(
+  payload: ImageGenerationApiPayload,
+):
+  | {
+      valid: true;
+      payload: ValidImageGenerationPayload;
+    }
+  | {
+      valid: false;
+      reason: string;
+    } {
+  if (!isGeneratedImageLayerForApi(payload.layer)) {
+    return {
+      valid: false,
+      reason: "图片生成请求缺少合法目标图层",
+    };
+  }
+
+  if (payload.mode !== "image_editing" && payload.mode !== "text_to_image") {
+    return {
+      valid: false,
+      reason: "图片生成请求 mode 不合法",
+    };
+  }
+
+  if (payload.mode === "image_editing") {
+    if (!isGeneratedImageLayerForApi(payload.sourceLayer)) {
+      return {
+        valid: false,
+        reason: "图片编辑请求缺少合法旧图图层",
+      };
+    }
+
+    if (
+      payload.sourceLayer.status !== "succeeded" ||
+      !isNonEmptyString(payload.sourceLayer.imageUrl)
+    ) {
+      return {
+        valid: false,
+        reason: "图片编辑需要先等待旧图生成成功",
+      };
+    }
+  }
+
+  return {
+    valid: true,
+    payload: {
+      editInstruction:
+        typeof payload.editInstruction === "string"
+          ? payload.editInstruction
+          : undefined,
+      layer: payload.layer,
+      mode: payload.mode,
+      sourceLayer: payload.sourceLayer,
+    },
   };
 }
 
@@ -534,9 +769,7 @@ function extractProviderErrorMessage(rawBody: string) {
 }
 
 export function sanitizeProviderErrorMessage(message: string) {
-  return message
-    .replace(/sk-[A-Za-z0-9_*.-]{6,}/g, "[redacted_api_key]")
-    .replace(/Bearer\s+[A-Za-z0-9_*.-]{8,}/gi, "Bearer [redacted_api_key]");
+  return sanitizeImageProviderErrorMessage(message);
 }
 
 function getSafeErrorMessage(error: unknown) {
@@ -549,4 +782,34 @@ function getSafeErrorMessage(error: unknown) {
 
 function getProcessCwd() {
   return (globalThis as unknown as { process: RuntimeProcess }).process.cwd();
+}
+
+function isGeneratedImageLayerForApi(value: unknown): value is GeneratedImageLayer {
+  return (
+    isRecord(value) &&
+    isNonEmptyString(value.id) &&
+    isNonEmptyString(value.prompt) &&
+    (value.status === "pending" ||
+      value.status === "succeeded" ||
+      value.status === "failed") &&
+    isFiniteNumber(value.x) &&
+    isFiniteNumber(value.y) &&
+    isFiniteNumber(value.width) &&
+    isFiniteNumber(value.height) &&
+    isFiniteNumber(value.opacity) &&
+    isNonEmptyString(value.createdAt) &&
+    isNonEmptyString(value.updatedAt) &&
+    (value.imageUrl === undefined || isNonEmptyString(value.imageUrl)) &&
+    (value.model === undefined || isNonEmptyString(value.model)) &&
+    (value.revisedPrompt === undefined || typeof value.revisedPrompt === "string") &&
+    (value.errorMessage === undefined || typeof value.errorMessage === "string")
+  );
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }

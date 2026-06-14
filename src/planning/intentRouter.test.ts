@@ -37,12 +37,13 @@ function createCanvasWithImageLayer(): CanvasState {
     layer: {
       id: "image-layer-bird-1",
       prompt: "画一只蓝色的鸟",
-      status: "pending",
+      status: "succeeded",
       x: 170,
       y: 90,
       width: 620,
       height: 420,
       opacity: 1,
+      imageUrl: "https://example.com/blue-bird.png",
       model: "mock-image-generation",
       createdAt: "2026-06-14T00:00:00.000Z",
       updatedAt: "2026-06-14T00:00:00.000Z",
@@ -150,6 +151,33 @@ describe("routeSemanticPlan", () => {
 
     expect(result.operations).toEqual([]);
     expect(result.operationPreview).toEqual([]);
+    expect(result.feedback).toEqual([
+      "语音改图需要先有一张可修改的生成图片",
+    ]);
+  });
+
+  it("blocks voice image editing while the source image layer is still pending", () => {
+    const pendingCanvas = applyDrawingOperation(createEmptyCanvasState(), {
+      type: "create_image_layer",
+      layer: {
+        id: "image-layer-pending",
+        prompt: "画一只蓝色的鸟",
+        status: "pending",
+        x: 170,
+        y: 90,
+        width: 620,
+        height: 420,
+        opacity: 1,
+        model: "mock-image-generation",
+        createdAt: "2026-06-14T00:00:00.000Z",
+        updatedAt: "2026-06-14T00:00:00.000Z",
+      },
+    });
+    const result = routeSemanticPlan(imageEditingPlan, {
+      canvasState: pendingCanvas,
+    });
+
+    expect(result.operations).toEqual([]);
     expect(result.feedback).toEqual([
       "语音改图需要先有一张可修改的生成图片",
     ]);
