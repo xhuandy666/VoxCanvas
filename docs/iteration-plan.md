@@ -26,8 +26,9 @@
 | PR-13 | `feat/generated-image-layer` | 建立 AI 生图图片图层模型、渲染占位、历史接入和生成状态 | 单元测试覆盖图片图层状态，手动检查图片图层显示和撤销 |
 | PR-14 | `feat/ai-image-generation-route` | 将“画一只蓝色的鸟”等复杂视觉任务路由到 AI 生图路径 | mock 生成服务测试，手动验证生成中、成功、失败反馈 |
 | PR-15 | `feat/voice-image-editing` | 支持“把这只鸟换成红色”“换成水彩风格”等基于旧图的语音改图 | mock 图片编辑测试，验证旧图进入历史且新图覆盖当前图层 |
-| PR-16 | `docs/demo-readiness` | 完成 README、设计文档和 Demo 脚本 | 按 Demo 脚本完整跑通 |
-| PR-17 | `fix/polish-and-hardening` | 修复演示问题和体验细节 | 全量回归测试 |
+| PR-16 | `fix/post-pr15-hardening` | 归并 PR-15 后真实测试暴露的问题：连续语音输入重开、LLM provider 兼容与错误诊断、数量创建和显式删除解析 | 全量回归测试、构建、固定语音样例手动验证 |
+| PR-17 | `docs/demo-readiness` | 完成 README、设计文档和 Demo 脚本 | 按 Demo 脚本完整跑通 |
+| PR-18 | `fix/polish-and-hardening` | 修复最终演示问题和体验细节 | 全量回归测试 |
 
 ## 3. PR 拆分原则
 
@@ -58,6 +59,9 @@
 画一个园
 回到最初状态
 重新来
+往上一
+画两个圆
+删除正方形
 画一座房子，有红色屋顶、黄色墙体、两个窗户和一扇门
 画一只蓝色的鸟
 把这只鸟换成红色

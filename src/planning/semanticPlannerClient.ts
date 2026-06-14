@@ -38,19 +38,22 @@ export function createRemoteSemanticPlanner({
         body: JSON.stringify(createSemanticPlanPayload(request)),
       });
 
+      const payload = await readJsonPayload(response);
+
+      if (isRawSemanticPlanResult(payload)) {
+        return payload;
+      }
+
       if (!response.ok) {
-        return createUnavailableSemanticPlan(request);
+        return createUnavailableSemanticPlan(
+          request,
+          getEndpointFailureReason(payload, response.status),
+        );
       }
 
-      const payload = await response.json();
-
-      if (!isRecord(payload)) {
-        return createUnavailableSemanticPlan(request);
-      }
-
-      return payload as RawSemanticPlanResult;
+      return createUnavailableSemanticPlan(request, "端点返回了无法识别的语义规划结果");
     } catch {
-      return createUnavailableSemanticPlan(request);
+      return createUnavailableSemanticPlan(request, "无法连接本地语义规划端点");
     }
   };
 }
@@ -68,7 +71,12 @@ function createSemanticPlanPayload(request: SemanticPlannerRequest) {
 
 function createUnavailableSemanticPlan(
   request: SemanticPlannerRequest,
+  reason?: string,
 ): RawSemanticPlanResult {
+  const feedback = reason
+    ? [`LLM 语义规划暂不可用：${reason}，已保留安全失败状态`]
+    : ["LLM 语义规划暂不可用，已保留安全失败状态"];
+
   return {
     status: "unsupported",
     route: "unsupported",
@@ -77,7 +85,7 @@ function createUnavailableSemanticPlan(
     normalizedTranscript: request.parserResult.normalizedTranscript,
     operations: [],
     operationPreview: [],
-    feedback: ["LLM 语义规划暂不可用，已保留安全失败状态"],
+    feedback,
   };
 }
 
@@ -91,4 +99,32 @@ function getDefaultFetch(): FetchLike | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+async function readJsonPayload(response: FetchResponse) {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+function isRawSemanticPlanResult(value: unknown): value is RawSemanticPlanResult {
+  return (
+    isRecord(value) &&
+    typeof value.status === "string" &&
+    typeof value.route === "string" &&
+    typeof value.intent === "string" &&
+    Array.isArray(value.operations) &&
+    Array.isArray(value.operationPreview) &&
+    Array.isArray(value.feedback)
+  );
+}
+
+function getEndpointFailureReason(payload: unknown, status?: number) {
+  if (isRecord(payload) && typeof payload.error === "string") {
+    return payload.error;
+  }
+
+  return `语义规划端点返回 HTTP ${status ?? "错误"}`;
 }

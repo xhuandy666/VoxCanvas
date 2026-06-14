@@ -1,10 +1,57 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import type { SpeechRecognitionLike } from "./speech/speechProvider";
+
+class FakeSpeechRecognition implements SpeechRecognitionLike {
+  continuous = false;
+  interimResults = false;
+  lang = "";
+  onend: (() => void) | null = null;
+  onerror: SpeechRecognitionLike["onerror"] = null;
+  onresult: SpeechRecognitionLike["onresult"] = null;
+  onstart: (() => void) | null = null;
+  start = vi.fn(() => this.onstart?.());
+  stop = vi.fn(() => this.onend?.());
+}
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+function stubBrowserSpeechRecognition(fakeRecognition = new FakeSpeechRecognition()) {
+  const SpeechRecognitionConstructor = vi.fn(function SpeechRecognitionConstructor() {
+    return fakeRecognition;
+  });
+
+  vi.stubGlobal(
+    "SpeechRecognition",
+    SpeechRecognitionConstructor,
+  );
+
+  return fakeRecognition;
+}
+
+function emitSpeechResult(
+  fakeRecognition: FakeSpeechRecognition,
+  transcript: string,
+  isFinal = true,
+) {
+  act(() => {
+    fakeRecognition.onresult?.({
+      resultIndex: 0,
+      results: [
+        {
+          isFinal,
+          0: {
+            transcript,
+            confidence: 0.9,
+          },
+        },
+      ],
+    });
+  });
+}
 
 describe("App", () => {
   it("renders the voice workbench regions around a wide canvas", () => {
@@ -72,6 +119,40 @@ describe("App", () => {
 
     expect(await screen.findAllByLabelText("rectangle shape")).toHaveLength(2);
     expect(screen.getByText("2 shapes / 0 image layers / v2")).toBeInTheDocument();
+  });
+
+  it("executes numbered shape creation in one transcript", async () => {
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /simulate transcript/i }), {
+      target: {
+        value: "画两个圆",
+      },
+    });
+
+    expect(await screen.findAllByLabelText("circle shape")).toHaveLength(2);
+    expect(screen.getByText("2 shapes / 0 image layers / v2")).toBeInTheDocument();
+    expect(screen.getByTestId("shape-voice-circle-1")).toBeInTheDocument();
+    expect(screen.getByTestId("shape-voice-circle-1-2")).toBeInTheDocument();
+  });
+
+  it("starts a fresh transcript after executing a final browser speech result", async () => {
+    const fakeRecognition = stubBrowserSpeechRecognition();
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /start voice/i }));
+    emitSpeechResult(fakeRecognition, "画一个圆");
+
+    expect(await screen.findByLabelText("circle shape")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /simulate transcript/i })).toHaveValue("");
+    expect(screen.getByText("画一个圆")).toBeInTheDocument();
+
+    emitSpeechResult(fakeRecognition, "画一个圆画一个正方形");
+
+    expect(await screen.findByLabelText("rectangle shape")).toBeInTheDocument();
+    expect(screen.getByText("2 shapes / 0 image layers / v2")).toBeInTheDocument();
+    expect(screen.getByText("画一个正方形")).toBeInTheDocument();
+    expect(screen.queryByText("画一个圆画一个正方形")).not.toBeInTheDocument();
   });
 
   it("enables undo, redo, and clear based on canvas history", async () => {
@@ -292,7 +373,7 @@ describe("App", () => {
     expect(screen.queryByLabelText("circle shape")).not.toBeInTheDocument();
   });
 
-  it("keeps an empty transcript as a waiting state", () => {
+  it("keeps the last command trace while reopening an empty transcript", () => {
     render(<App />);
     const transcriptInput = screen.getByRole("textbox", {
       name: /simulate transcript/i,
@@ -309,9 +390,10 @@ describe("App", () => {
       },
     });
 
-    expect(screen.getByText("unknown")).toBeInTheDocument();
-    expect(screen.getByText("no operation preview")).toBeInTheDocument();
-    expect(screen.getByText("等待语音输入")).toBeInTheDocument();
+    expect(screen.getByText("create_shape")).toBeInTheDocument();
+    expect(screen.getByText("画一个蓝色圆形")).toBeInTheDocument();
+    expect(screen.getByText("已解析为创建圆形操作")).toBeInTheDocument();
+    expect(transcriptInput).toHaveValue("");
   });
 
   it("executes an LLM semantic correction from the planning endpoint", async () => {
@@ -361,23 +443,9 @@ describe("App", () => {
     expect(screen.getByText("已将“园”理解为圆形")).toBeInTheDocument();
   });
 
-  it("executes an LLM natural reset expression from the planning endpoint", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          status: "matched",
-          route: "structured_drawing",
-          intent: "clear_canvas",
-          confidence: 0.87,
-          normalizedTranscript: "清空画布",
-          operations: [{ type: "clear_canvas" }],
-          operationPreview: ["clear canvas"],
-          feedback: ["已将自然表达归一为清空画布"],
-        }),
-      }),
-    );
+  it("executes natural reset expressions on the local fast path", async () => {
+    const fetchImpl = vi.fn();
+    vi.stubGlobal("fetch", fetchImpl);
     render(<App />);
     const transcriptInput = screen.getByRole("textbox", {
       name: /simulate transcript/i,
@@ -398,7 +466,35 @@ describe("App", () => {
 
     expect(await screen.findByText("0 shapes / 0 image layers / v2")).toBeInTheDocument();
     expect(screen.queryByLabelText("circle shape")).not.toBeInTheDocument();
-    expect(screen.getByText("已将自然表达归一为清空画布")).toBeInTheDocument();
+    expect(screen.getByText("已解析为清空画布操作")).toBeInTheDocument();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("keeps diagnostic LLM failures visible after reopening the transcript input", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({
+          error: "OpenAI Responses API 返回 HTTP 401：Incorrect API key provided: [redacted_api_key]",
+        }),
+      }),
+    );
+    render(<App />);
+    const transcriptInput = screen.getByRole("textbox", {
+      name: /simulate transcript/i,
+    });
+
+    fireEvent.change(transcriptInput, {
+      target: {
+        value: "帮我理解这句话",
+      },
+    });
+
+    expect(await screen.findByText(/LLM 语义规划暂不可用/)).toBeInTheDocument();
+    expect(transcriptInput).toHaveValue("");
+    expect(screen.getByText("帮我理解这句话")).toBeInTheDocument();
   });
 
   it("disables unavailable speech while keeping empty history actions disabled", () => {

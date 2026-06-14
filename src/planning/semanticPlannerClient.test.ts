@@ -93,7 +93,44 @@ describe("createRemoteSemanticPlanner", () => {
       route: "unsupported",
       intent: "unknown",
       operations: [],
-      feedback: ["LLM 语义规划暂不可用，已保留安全失败状态"],
+      feedback: [
+        "LLM 语义规划暂不可用：无法连接本地语义规划端点，已保留安全失败状态",
+      ],
+    });
+  });
+
+  it("keeps endpoint failure reasons visible for local setup debugging", async () => {
+    const planner = createRemoteSemanticPlanner({
+      fetchImpl: vi.fn().mockResolvedValue({
+        ok: false,
+        status: 502,
+        json: async () => ({
+          error: "missing_openai_api_key",
+        }),
+      }),
+    });
+
+    const result = await planner({
+      canvasState: createEmptyCanvasState(),
+      parserResult: {
+        status: "unsupported",
+        intent: "unknown",
+        operations: [],
+        operationPreview: [],
+        feedback: ["暂时无法解析这条绘图指令"],
+        normalizedTranscript: "重新来",
+      },
+      transcript: "重新来",
+    });
+
+    expect(result).toMatchObject({
+      status: "unsupported",
+      route: "unsupported",
+      intent: "unknown",
+      operations: [],
+      feedback: [
+        "LLM 语义规划暂不可用：missing_openai_api_key，已保留安全失败状态",
+      ],
     });
   });
 });

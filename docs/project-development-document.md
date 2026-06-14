@@ -141,6 +141,14 @@ PR-15 已建立基于旧图的语音改图 mock 路由。用户先通过“画�
 
 新改图图层会进入 `OperationValidator`、`OperationQueue`、`CanvasState` 和 `HistoryManager`，因此旧图仍保留在历史快照中，撤销可以回到改图前状态。PR-15 不接入真实图片编辑模型，不读取图片模型 API key，也不处理真实图片缓存；真实生成/编辑服务和图片存储策略会作为后续独立工作接入。
 
+### 当前实现状态（PR-16）
+
+PR-16 将 PR-15 之后的真实测试问题归并为演示前加固：浏览器语音 final transcript 执行后会自动清空输入并开启新指令，避免“画一个圆画一个正方形”这类连续语音粘连；Command trace 会在输入清空后保留上一条执行或 LLM 失败诊断，方便演示时解释系统状态。
+
+语义规划代理新增 DashScope OpenAI 兼容接口支持，可通过 `VOXCANVAS_LLM_PROVIDER=dashscope`、`DASHSCOPE_API_KEY` 和 `VOXCANVAS_LLM_MODEL=qwen3.6-flash` 切换 provider。代理会剥离模型返回的 fenced JSON，归一化缺失字段，展示脱敏失败原因，并继续保证 API key 不进入前端或仓库。
+
+本地规则解析也补齐了演示高频表达：“重新来”“回到最初状态”“全部清掉”走本地清空画布路径；“往上一”会移动最近对象；“画两个圆”等简单数量指令会生成多个合法 `create_shape` 操作；“删除正方形”会优先按显式删除处理，不再误判为新建正方形。
+
 ### PR-08 后的真实语音测试结论
 
 PR-08 完成后，本地测试暴露出规则解析的主要边界：浏览器语音识别可能把“圆”转成“园”，用户也可能用“回到最初状态”“重新来”“全部清掉”等未写入规则表的自然表达。当前 `CommandParser` 依赖有限关键词和正则，适合低延迟、确定性的基础指令，但不能承担完整用户语义理解。
@@ -216,7 +224,7 @@ PR-01 的目标是先建立稳定、可运行、可验证的前端工作台，�
 - `BrowserSpeechProvider`：浏览器语音识别实现，MVP 默认启用。
 - `LocalSpeechProvider`：本地语音识别预留接口，MVP 不实现真实识别。
 - `CommandParser`：解析简单、确定性强的绘图指令，作为低延迟快速路径。
-- `SemanticCommandPlanner`：通过 OpenAI Responses API 处理语音识别误差、自然语言同义表达、复杂指令和澄清问题；前端只请求同源代理，API key 只保存在环境变量或后端配置中。
+- `SemanticCommandPlanner`：通过同源 `/api/semantic-plan` 代理调用语义模型 provider，处理语音识别误差、自然语言同义表达、复杂指令和澄清问题；当前支持 OpenAI Responses API 和 DashScope OpenAI 兼容接口，API key 只保存在环境变量或后端配置中。
 - `IntentRouter`：根据语义规划结果选择结构化绘图、AI 生图、图片编辑或澄清路线。
 - `OperationValidator`：校验 LLM 或规则输出的操作，确保只能执行合法 `DrawingOperation`。
 - `ShapeTemplateExpander`：将“房子”“流程图”等结构化复合对象展开为多个可编辑图形操作，或在 schema 扩展后生成更丰富的图形原语。
@@ -247,7 +255,7 @@ PR-01 的目标是先建立稳定、可运行、可验证的前端工作台，�
 
 AI 生图用于处理结构化绘图不擅长的复杂视觉任务，例如“画一只蓝色的鸟”“画一个水彩风格的森林场景”。这类任务不强行拆成圆、矩形和线条，而是由语义规划层路由到图片生成路径。
 
-模型路线与 PR-10 保持一致：语义理解优先使用 OpenAI Responses API；后续生图和语音改图优先使用 Responses API 的 `image_generation` 工具，以便在同一多轮上下文中保留旧图、图像 ID、上一轮 response 和新语音指令。若后续评测成本或效果要求变化，也可以把语义规划和图片生成拆成不同模型，但接口层保持 `SemanticCommandPlanner` 与 `ImageGenerationService` 分离。
+模型路线与 PR-10 保持一致：语义理解默认优先使用 OpenAI Responses API；如果 OpenAI key、额度或模型可用性不稳定，本地代理可以切换到 DashScope OpenAI 兼容接口，例如使用 `qwen3.6-flash` 作为语义规划模型。后续生图和语音改图可以继续使用 OpenAI 图像能力，也可以选择 Qwen Image 或通义万相等图像模型；但接口层必须保持 `SemanticCommandPlanner` 与 `ImageGenerationService` 分离，避免把“理解用户意图”和“生成/编辑图片”绑死到同一个 provider。
 
 第一版 AI 生图只考虑纯语音控制，不引入鼠标工具、橡皮、画笔或框选操作。用户可以继续通过语音修改生成图，例如“把鸟换成红色”“换一种扁平插画风格”“背景变成夜晚”。系统会把旧图、原始 prompt、编辑历史和新指令传给图片编辑模型，生成新图并替换当前图片图层；旧图仍进入历史记录，支持撤销。
 
@@ -318,7 +326,7 @@ MVP 阶段只实现浏览器版本，后续若时间允许，再实现本地服�
 为了平衡响应延迟和理解能力，采用分层策略：
 
 1. 确定性指令优先走本地规则解析，例如“画一个红色圆形”“撤销”“清空画布”。
-2. 规则解析失败、识别结果疑似同音错字、自然口语表达或复杂组合指令进入 LLM Semantic Planner；PR-10 通过同源 `/api/semantic-plan` 代理调用 OpenAI Responses API。
+2. 规则解析失败、识别结果疑似同音错字、自然口语表达或复杂组合指令进入 LLM Semantic Planner；PR-10 通过同源 `/api/semantic-plan` 代理调用配置的语义模型 provider。
 3. LLM 先判断任务路线：结构化绘图、AI 生图、图片编辑、澄清或不支持。
 4. 结构化绘图路线只输出结构化计划、纠错后的 transcript、置信度、澄清问题或 `DrawingOperation[]`，不能直接操作 DOM、SVG 或画布状态。
 5. 所有结构化操作必须经过 schema 校验和 `OperationValidator`，非法操作、缺失目标、越界参数或低置信度结果不执行。
@@ -335,7 +343,8 @@ MVP 阶段只实现浏览器版本，后续若时间允许，再实现本地服�
 - 简单指令本地解析，不调用 LLM。
 - 识别误差、自然语言归一、模糊澄清和复杂指令才进入 AI 规划层。
 - 云端 LLM API key 必须保存在后端或本地环境变量中，不能进入前端代码或仓库。
-- PR-10 默认模型通过 `VOXCANVAS_LLM_MODEL` 配置，当前文档建议值为 `gpt-5.4-mini`，实际可用模型名以本地环境变量和 OpenAI 控制台为准。
+- PR-10 默认 provider 通过 `VOXCANVAS_LLM_PROVIDER` 配置，默认值为 `openai`；若切换到 `dashscope`，可用 `DASHSCOPE_API_KEY` 和 `VOXCANVAS_LLM_MODEL=qwen3.6-flash` 尝试语义规划。
+- PR-10 默认模型通过 `VOXCANVAS_LLM_MODEL` 配置，实际可用模型名以本地环境变量、OpenAI 控制台或阿里云百炼模型列表为准。
 - 图片生成或图片编辑 API key 同样必须通过后端或安全代理保护，生成图片缓存和外部服务依赖必须在 README 与 PR 描述中说明。
 - 对相同指令解析结果做轻量缓存。
 - AI 生图和图片编辑属于高延迟路径，界面必须显示生成中、失败和可重试状态。

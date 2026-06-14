@@ -14,13 +14,28 @@ export function useBrowserSpeech({ initialTranscript, language }: UseBrowserSpee
     isSupported ? "idle" : "unsupported",
   );
   const [transcript, setTranscript] = useState(initialTranscript);
+  const [isTranscriptFinal, setIsTranscriptFinal] = useState(false);
+  const [transcriptRevision, setTranscriptRevision] = useState(0);
   const [speechError, setSpeechError] = useState<string | null>(
     isSupported ? null : "Browser speech recognition is unavailable.",
   );
 
   useEffect(() => {
+    let lastFinalRawTranscript = "";
+
     const unsubscribeResult = provider.onResult((result) => {
-      setTranscript(result.transcript);
+      const nextTranscript = getNewTranscriptSegment(
+        result.transcript,
+        lastFinalRawTranscript,
+      );
+
+      if (result.isFinal) {
+        lastFinalRawTranscript = result.transcript;
+      }
+
+      setTranscript(nextTranscript);
+      setIsTranscriptFinal(result.isFinal);
+      setTranscriptRevision((revision) => revision + 1);
       setSpeechError(null);
     });
     const unsubscribeError = provider.onError((error) => {
@@ -55,16 +70,37 @@ export function useBrowserSpeech({ initialTranscript, language }: UseBrowserSpee
 
   const updateTranscript = useCallback((nextTranscript: string) => {
     setTranscript(nextTranscript);
+    setIsTranscriptFinal(true);
+    setTranscriptRevision((revision) => revision + 1);
     setSpeechError(null);
   }, []);
 
+  const clearTranscript = useCallback(() => {
+    setTranscript("");
+    setIsTranscriptFinal(false);
+  }, []);
+
   return {
+    clearTranscript,
     isSupported,
+    isTranscriptFinal,
     speechError,
     speechStatus,
     start,
     stop,
     transcript,
+    transcriptRevision,
     updateTranscript,
   };
+}
+
+function getNewTranscriptSegment(transcript: string, lastFinalRawTranscript: string) {
+  const trimmedTranscript = transcript.trim();
+  const trimmedPrefix = lastFinalRawTranscript.trim();
+
+  if (!trimmedPrefix || !trimmedTranscript.startsWith(trimmedPrefix)) {
+    return trimmedTranscript;
+  }
+
+  return trimmedTranscript.slice(trimmedPrefix.length).trim();
 }

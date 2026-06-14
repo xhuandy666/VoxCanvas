@@ -11,6 +11,7 @@ describe("createCommandTraceState", () => {
     const traceState = createCommandTraceState("清空画布");
 
     expect(traceState).toEqual({
+      recognizedText: "清空画布",
       parsedIntent: "clear_canvas",
       operationPreview: ["clear canvas"],
       feedbackLog: ["已解析为清空画布操作"],
@@ -21,6 +22,7 @@ describe("createCommandTraceState", () => {
     const traceState = createCommandTraceState("把它向右移动一点");
 
     expect(traceState).toEqual({
+      recognizedText: "把它向右移动一点",
       parsedIntent: "unknown",
       operationPreview: ["no operation preview"],
       feedbackLog: ["没有可引用的对象，请先创建图形"],
@@ -46,6 +48,7 @@ describe("createCommandTraceState", () => {
     const traceState = createCommandTraceState("把它向右移动一点", { canvasState });
 
     expect(traceState).toEqual({
+      recognizedText: "把它向右移动一点",
       parsedIntent: "move_shape",
       operationPreview: ["move shape: shape-1, dx: 60, dy: 0"],
       feedbackLog: ["已解析为移动最近对象操作"],
@@ -59,6 +62,7 @@ describe("createCommandTraceState", () => {
     const traceState = createCommandTraceStateFromSemanticPlan(plan);
 
     expect(traceState).toEqual({
+      recognizedText: "把它放大",
       parsedIntent: "clarify_reference",
       operationPreview: ["clarification required: missing_reference"],
       feedbackLog: ["需要澄清：我还没有找到可引用的对象。"],

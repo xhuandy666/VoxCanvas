@@ -316,28 +316,21 @@ describe("createSemanticPlan", () => {
     expect(plan.operations).toHaveLength(1);
   });
 
-  it("uses an async LLM planner to normalize natural reset expressions", async () => {
+  it("keeps natural reset expressions on the local fast path", async () => {
     const plan = await createSemanticPlanAsync("回到最初状态", {
       canvasState: createCanvasWithCircle(),
-      semanticPlanner: async () => ({
-        status: "matched",
-        route: "structured_drawing",
-        intent: "clear_canvas",
-        confidence: 0.87,
-        normalizedTranscript: "清空画布",
-        operations: [{ type: "clear_canvas" }],
-        operationPreview: ["clear canvas"],
-        feedback: ["已将自然表达归一为清空画布"],
-      }),
+      semanticPlanner: async () => {
+        throw new Error("reset should not require LLM");
+      },
       semanticPlannerSource: "llm_semantic_planner",
     });
 
     expect(plan).toMatchObject({
       status: "matched",
       intent: "clear_canvas",
-      source: "llm_semantic_planner",
+      source: "rule_parser",
       operations: [{ type: "clear_canvas" }],
-      feedback: ["已将自然表达归一为清空画布"],
+      feedback: ["已解析为清空画布操作"],
     });
   });
 });

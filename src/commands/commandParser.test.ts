@@ -71,6 +71,40 @@ describe("parseCommand", () => {
     expect(result.operationPreview).toEqual(["add shape: circle, color: blue"]);
   });
 
+  it("expands simple numbered shape creation commands", () => {
+    const result = parseCommand("画两个圆", {
+      createShapeId: (kind, _transcript, index = 0) => `shape-${kind}-${index + 1}`,
+    });
+
+    expect(result.status).toBe("matched");
+    expect(result.intent).toBe("create_shape");
+    expect(result.operations).toHaveLength(2);
+    expect(result.operations).toMatchObject([
+      {
+        type: "create_shape",
+        shape: {
+          id: "shape-circle-1",
+          kind: "circle",
+          x: 340,
+        },
+      },
+      {
+        type: "create_shape",
+        shape: {
+          id: "shape-circle-2",
+          kind: "circle",
+          x: 480,
+        },
+      },
+    ]);
+    expect(result.operationPreview).toEqual([
+      "add shape: circle, color: blue, count: 2",
+    ]);
+    expect(validateDrawingOperations(result.operations, createEmptyCanvasState()).valid).toBe(
+      true,
+    );
+  });
+
   it("parses a positioned rectangle creation command", () => {
     const result = parseCommand("在左上角画一个红色矩形", {
       createShapeId: () => "shape-rectangle-1",
@@ -323,6 +357,16 @@ describe("parseCommand", () => {
     expect(result.operationPreview).toEqual(["clear canvas"]);
   });
 
+  it("parses natural reset expressions as clear canvas commands", () => {
+    for (const transcript of ["重新来", "回到最初状态", "全部清掉"]) {
+      const result = parseCommand(transcript);
+
+      expect(result.status).toBe("matched");
+      expect(result.intent).toBe("clear_canvas");
+      expect(result.operations).toEqual([{ type: "clear_canvas" }]);
+    }
+  });
+
   it("parses undo and redo commands without drawing operations", () => {
     const undo = parseCommand("撤销");
     const redo = parseCommand("重做");
@@ -359,6 +403,26 @@ describe("parseCommand", () => {
       "move shape: shape-circle-1, dx: 60, dy: 0",
     ]);
     expect(result.feedback).toEqual(["已解析为移动最近对象操作"]);
+  });
+
+  it("moves the most recent object for implicit upward movement commands", () => {
+    const result = parseCommand("往上一", {
+      canvasState: createReferenceCanvasState(),
+    });
+
+    expect(result.status).toBe("matched");
+    expect(result.intent).toBe("move_shape");
+    expect(result.operations).toEqual([
+      {
+        type: "move_shape",
+        shapeId: "shape-circle-1",
+        deltaX: 0,
+        deltaY: -60,
+      },
+    ]);
+    expect(result.operationPreview).toEqual([
+      "move shape: shape-circle-1, dx: 0, dy: -60",
+    ]);
   });
 
   it("updates a referenced shape by type", () => {
@@ -423,6 +487,63 @@ describe("parseCommand", () => {
       },
     ]);
     expect(result.operationPreview).toEqual(["delete shape: shape-rectangle-1"]);
+  });
+
+  it("deletes an explicit shape type without recreating that shape", () => {
+    const canvasState = applyDrawingOperation(
+      applyDrawingOperation(createEmptyCanvasState(), {
+        type: "create_shape",
+        shape: {
+          id: "shape-triangle-1",
+          kind: "triangle",
+          x: 390,
+          y: 230,
+          width: 180,
+          height: 140,
+          rotation: 0,
+          style: {
+            fill: "#2563eb",
+            stroke: "#1d4ed8",
+            strokeWidth: 2,
+          },
+        },
+      }),
+      {
+        type: "create_shape",
+        shape: {
+          id: "shape-square-1",
+          kind: "rectangle",
+          x: 390,
+          y: 240,
+          width: 180,
+          height: 120,
+          rotation: 0,
+          style: {
+            fill: "#2563eb",
+            stroke: "#1d4ed8",
+            strokeWidth: 2,
+          },
+        },
+      },
+    );
+
+    const result = parseCommand("删除正方形", {
+      canvasState,
+    });
+
+    expect(result.status).toBe("matched");
+    expect(result.intent).toBe("delete_shape");
+    expect(result.operations).toEqual([
+      {
+        type: "delete_shape",
+        shapeId: "shape-square-1",
+      },
+    ]);
+    expect(result.operations).not.toContainEqual(
+      expect.objectContaining({
+        type: "create_shape",
+      }),
+    );
   });
 
   it("keeps object-reference commands unsupported when there is no matching target", () => {
