@@ -180,7 +180,7 @@ describe("CanvasRenderer", () => {
 
     expect(
       screen.getByRole("img", { name: /rendered drawing canvas/i }),
-    ).toHaveAttribute("viewBox", "0 0 960 600");
+    ).toHaveAttribute("viewBox", "0 0 1600 1000");
     expect(screen.getByText(/canvas is ready/i)).toBeInTheDocument();
   });
 
@@ -252,8 +252,10 @@ describe("CanvasRenderer", () => {
     const pendingLayer = screen.getByTestId("image-layer-image-layer-pending");
     expect(pendingLayer).toHaveAttribute("data-status", "pending");
     expect(pendingLayer).toHaveAttribute("data-selected", "true");
-    expect(screen.getByText("Generating image...")).toBeInTheDocument();
-    expect(screen.getByText("画一只蓝色的鸟")).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: /generating image/i }),
+    ).toBeInTheDocument();
+    expect(pendingLayer.querySelector(".image-layer-loader-ring")).toBeInTheDocument();
 
     const succeededImage = screen
       .getByTestId("image-layer-image-layer-succeeded")
@@ -264,6 +266,7 @@ describe("CanvasRenderer", () => {
     );
     expect(succeededImage).toHaveAttribute("x", "360");
     expect(succeededImage).toHaveAttribute("width", "260");
+    expect(succeededImage).toHaveAttribute("preserveAspectRatio", "xMidYMid meet");
 
     const failedLayer = screen.getByTestId("image-layer-image-layer-failed");
     expect(failedLayer).toHaveAttribute("data-status", "failed");

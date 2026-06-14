@@ -255,7 +255,7 @@ describe("App", () => {
       .getByTestId("shape-voice-circle-2")
       .querySelector("circle");
 
-    expect(movedCircle).toHaveAttribute("cx", "540");
+    expect(movedCircle).toHaveAttribute("cx", "860");
     expect(screen.getByText("已解析为移动最近对象操作")).toBeInTheDocument();
 
     fireEvent.change(transcriptInput, {
@@ -576,8 +576,9 @@ describe("App", () => {
     const workbench = screen.getByLabelText("VoxCanvas workbench");
 
     expect(workbench.children[0]).toHaveAccessibleName("Drawing canvas workspace");
-    expect(workbench.children[1]).toHaveAccessibleName("Voice control");
-    expect(workbench.children[2]).toHaveAccessibleName("Command trace");
+    expect(workbench.children[1]).toHaveAccessibleName("Voice and trace panels");
+    expect(workbench.children[1].children[0]).toHaveAccessibleName("Voice control");
+    expect(workbench.children[1].children[1]).toHaveAccessibleName("Command trace");
   });
 
   it("labels the text simulation entry as development-only", () => {
